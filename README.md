@@ -31,14 +31,15 @@ Adaptive thresholding scales similarity thresholds based on intent risk score:
 
 ---
 
-## Phase 3: Dynamic Multi-Provider Routing & Fallback
+## Phase 3: Dynamic Model Capability Routing & Fallback
 
-Phase 3 introduces dynamic multi-provider routing across provider tiers:
+Phase 3 introduces dynamic capability-based model tiering:
 - **`fast_cheap` Tier (Groq `openai/gpt-oss-20b`)**: Routed when `risk_score < 0.50` (simple informational queries). Pricing: $0.05 / 1M input tokens, $0.08 / 1M output tokens.
-- **`capable_expensive` Tier (OpenAI `gpt-4o-mini`)**: Routed when `risk_score >= 0.50` (complex operational / sensitive actions). Pricing: $0.15 / 1M input tokens, $0.60 / 1M output tokens.
+- **`capable_expensive` Tier (Groq-Capable `openai/gpt-oss-120b`)**: Routed when `risk_score >= 0.50` (complex operational / sensitive actions requiring deep reasoning). Pricing: $0.50 / 1M input tokens, $0.80 / 1M output tokens.
 
-### Automated Fallback Resilience
-If a primary provider API call fails (HTTP 5xx, timeout, or authentication failure), SentinelCache automatically catches the exception, logs the failure, and retries against an alternative healthy provider/tier without raising an error to the end user.
+### Automated Fallback Resilience & Startup Safety
+- **Loud Startup Key Validation**: The gateway validates all provider `api_key_env_var` keys at startup and fails fast with a `RuntimeError` if required keys are missing or unconfigured.
+- **Outage Fallback**: If a primary provider model call fails (HTTP 5xx, 4xx model error, or timeout), SentinelCache automatically catches the exception, logs detailed diagnostic telemetry, and retries against a fallback healthy provider model without failing the request to the client.
 
 ---
 

@@ -35,6 +35,21 @@ async def lifespan(app: FastAPI):
     embedder = EmbeddingModel()
     cache_client = CacheClient()
 
+    # Startup safety check: ensure all configured providers have valid, non-empty API keys
+    missing_keys = []
+    for provider in PROVIDERS:
+        env_var = provider["api_key_env_var"]
+        key_val = os.getenv(env_var, "").strip()
+        if not key_val or key_val.startswith("your_"):
+            missing_keys.append(f"Provider '{provider['name']}' requires env var '{env_var}'")
+    
+    if missing_keys:
+        err_msg = f"CRITICAL: Gateway startup aborted! Missing API key configurations: {'; '.join(missing_keys)}"
+        logger.error(err_msg)
+        raise RuntimeError(err_msg)
+
+    logger.info("All configured LLM provider API keys successfully validated.")
+
     try:
         cache_client.create_collection()
     except Exception as exc:
@@ -118,10 +133,29 @@ async def call_provider(provider_config: Dict[str, Any], prompt: str) -> Tuple[s
         ]
     }
 
+    # Construct complete chat completions endpoint URL
+    base_url = provider_config["api_base_url"].rstrip("/")
+    if not base_url.endswith("/chat/completions"):
+        endpoint_url = f"{base_url}/chat/completions"
+    else:
+        endpoint_url = base_url
+
     async with httpx.AsyncClient(timeout=30.0) as client:
-        res = await client.post(provider_config["api_base_url"], headers=headers, json=payload)
-        res.raise_for_status()
-        data = res.json()
+        try:
+            res = await client.post(endpoint_url, headers=headers, json=payload)
+            res.raise_for_status()
+            data = res.json()
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                f"Provider '{provider_config['name']}' HTTP error: "
+                f"Status={exc.response.status_code}, Exception={type(exc).__name__}, ResponseBody={exc.response.text}"
+            )
+            raise
+        except Exception as exc:
+            logger.error(
+                f"Provider '{provider_config['name']}' failed with Exception={type(exc).__name__}: {str(exc)}"
+            )
+            raise
 
     response_text = data["choices"][0]["message"]["content"]
     usage = data.get("usage", {})
@@ -230,7 +264,7 @@ async def chat_completions(request: ChatRequest):
             break
         except Exception as exc:
             last_exception = exc
-            logger.warning(f"Provider '{provider_config['name']}' failed: {exc}. Trying next candidate...")
+            logger.warning(f"Provider '{provider_config['name']}' failed with error: {type(exc).__name__}: {exc}. Trying next candidate...")
 
     if not response_text or not successful_provider:
         raise HTTPException(

@@ -12,6 +12,16 @@ Use this log file to track latency, cache hit ratios, routing decisions, and ove
 | 2026-09-06 | Phase 2 High Risk 2: 'Downgrade my subscription' | 1232.7 | Cache MISS (source: llm, strict threshold 0.9570 prevented false hit) |
 | 2026-09-06 | Phase 2 Low Risk 1: 'What is semantic caching?' | 3132.9 | Cache MISS (risk: 0.10, loose threshold: 0.8910) |
 | 2026-09-06 | Phase 2 Low Risk 2: 'Can you explain semantic caching?' | 13.7 | Cache HIT (source: cache, loose threshold 0.8910 allowed hit) |
-| 2026-09-06 | Phase 3 Low Risk: 'What is the capital of Germany?' | 884.5 | Routed to fast_cheap (Groq, $0.00000750 USD) |
-| 2026-09-06 | Phase 3 High Risk: 'Revoke all user permissions immediately' | 925.7 | Target capable_expensive (risk: 0.70, fallback to healthy Groq, $0.00001913 USD) |
-| 2026-09-06 | Phase 3 Outage Fallback: 'What is the speed of sound in air?' | 1334.5 | Primary Groq failed -> Fallback SUCCESS to Groq-Secondary (qwen3.6-27b, $0.00003648 USD) |
+| 2026-09-06 | Phase 3 Low Risk: 'What is the capital of Germany?' | 982.7 | Routed to fast_cheap (Groq `openai/gpt-oss-20b`, $0.00001006 USD) |
+| 2026-09-06 | Phase 3 High Risk: 'Revoke all user permissions immediately' | 1190.8 | Routed to capable_expensive (Groq-Capable `openai/gpt-oss-120b`, $0.00017930 USD, NO fallback) |
+| 2026-09-06 | Phase 3 Outage Fallback: 'What is the speed of sound in air?' | 1317.9 | Primary Groq failed -> Fallback SUCCESS to Groq-Secondary (qwen3.6-27b, $0.00004136 USD) |
+
+## Lessons Learned & Architectural Safety Enhancements (Phase 3 Debugging)
+
+### Single-Provider Free-Tier Capability Model Routing
+- **Scope Alignment**: Paid external provider keys (such as OpenAI) are out of scope for non-funded deployment budgets. Rather than silently masking invalid/missing external keys, Phase 3 dynamic routing was re-architected to perform capability-based model tiering using Groq's model spectrum:
+  - **`fast_cheap` Tier**: `openai/gpt-oss-20b` ($0.05 / 1M input, $0.08 / 1M output).
+  - **`capable_expensive` Tier**: `openai/gpt-oss-120b` ($0.50 / 1M input, $0.80 / 1M output).
+- **Loud Startup Key Validation**: Added a mandatory startup safety check in `gateway/main.py`. The gateway verifies that all configured provider `api_key_env_var` keys are non-empty and valid. If any key is missing or set to placeholder, gateway startup **fails immediately with a loud `RuntimeError`**, preventing silent key borrowing or fallback degradation.
+- **Cost Differential Telemetry**: Both tiers hit Groq using `GROQ_API_KEY`, but token costs reflect real model parameter differentials (17.8x cost difference for high-risk complex reasoning on 120B model vs 20B fast model).
+

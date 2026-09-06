@@ -31,12 +31,12 @@ PROVIDERS: List[Dict[str, Any]] = [
         "priority_tier": "fast_cheap"
     },
     {
-        "name": "OpenAI",
-        "api_base_url": "https://api.openai.com/v1/chat/completions",
-        "api_key_env_var": "OPENAI_API_KEY",
-        "model_name": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-        "cost_per_1k_input_tokens": 0.00015,   # $0.15 / 1M tokens
-        "cost_per_1k_output_tokens": 0.00060,  # $0.60 / 1M tokens
+        "name": "Groq-Capable",
+        "api_base_url": "https://api.groq.com/openai/v1/chat/completions",
+        "api_key_env_var": "GROQ_API_KEY",
+        "model_name": os.getenv("GROQ_CAPABLE_MODEL", "openai/gpt-oss-120b"),
+        "cost_per_1k_input_tokens": 0.00050,   # $0.50 / 1M tokens
+        "cost_per_1k_output_tokens": 0.00080,  # $0.80 / 1M tokens
         "max_context_tokens": 128000,
         "priority_tier": "capable_expensive"
     }
