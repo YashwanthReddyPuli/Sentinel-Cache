@@ -32,7 +32,7 @@ Phase 2 replaces static similarity thresholding with intent- and risk-aware adap
 - **Default Bucket**: `risk_score = 0.50`.
 
 ### Linear Threshold Mapping Formula (`gateway/cache.py`)
-$$\text{effective\_threshold} = 0.88 + (0.11 \times \text{risk\_score})$$
+`effective_threshold = 0.88 + (0.11 * risk_score)`
 - `risk_score = 0.0` $\rightarrow$ `threshold = 0.88`
 - `risk_score = 0.70` $\rightarrow$ `threshold = 0.9570` (Prevents false hits on "Cancel" vs "Downgrade")
 - `risk_score = 1.0` $\rightarrow$ `threshold = 0.99`
