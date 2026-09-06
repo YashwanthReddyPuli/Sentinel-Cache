@@ -16,7 +16,7 @@ app = FastAPI(
 
 # Groq API Configuration
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.getenv("GROQ_MODEL", "groq/compound")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 
 
 class ChatRequest(BaseModel):
