@@ -20,7 +20,7 @@ HIGH_RISK_VERBS = [
 
 LOW_RISK_MARKERS = [
     "difference between", "when was", "who is",
-    "what", "how", "explain", "define"
+    "what", "how", "explain", "define", "who", "when", "where", "which", "why"
 ]
 
 NEGATION_WORDS = [

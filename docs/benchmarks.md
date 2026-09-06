@@ -12,3 +12,6 @@ Use this log file to track latency, cache hit ratios, routing decisions, and ove
 | 2026-09-06 | Phase 2 High Risk 2: 'Downgrade my subscription' | 1232.7 | Cache MISS (source: llm, strict threshold 0.9570 prevented false hit) |
 | 2026-09-06 | Phase 2 Low Risk 1: 'What is semantic caching?' | 3132.9 | Cache MISS (risk: 0.10, loose threshold: 0.8910) |
 | 2026-09-06 | Phase 2 Low Risk 2: 'Can you explain semantic caching?' | 13.7 | Cache HIT (source: cache, loose threshold 0.8910 allowed hit) |
+| 2026-09-06 | Phase 3 Low Risk: 'What is the capital of Germany?' | 884.5 | Routed to fast_cheap (Groq, $0.00000750 USD) |
+| 2026-09-06 | Phase 3 High Risk: 'Revoke all user permissions immediately' | 925.7 | Target capable_expensive (risk: 0.70, fallback to healthy Groq, $0.00001913 USD) |
+| 2026-09-06 | Phase 3 Outage Fallback: 'What is the speed of sound in air?' | 1334.5 | Primary Groq failed -> Fallback SUCCESS to Groq-Secondary (qwen3.6-27b, $0.00003648 USD) |
