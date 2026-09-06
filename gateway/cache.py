@@ -1,7 +1,7 @@
 """
 Qdrant Vector Database Cache Client for SentinelCache.
 
-Provides collection creation, vector similarity lookup, and cache storage.
+Provides collection creation, adaptive vector similarity lookup, and cache storage.
 """
 
 import os
@@ -15,6 +15,25 @@ logger = logging.getLogger("sentinelcache.cache")
 
 COLLECTION_NAME = "prompt_cache"
 VECTOR_DIMENSION = 384  # all-MiniLM-L6-v2 output dimension
+
+# Named constant for legacy fixed threshold benchmarking
+FIXED_THRESHOLD = 0.92
+
+
+def map_risk_to_threshold(risk_score: float) -> float:
+    """
+    Linearly maps a prompt risk_score in [0.0, 1.0] to a similarity threshold in [0.88, 0.99].
+
+    Formula: threshold = 0.88 + 0.11 * risk_score
+    - risk_score 0.0 -> threshold 0.88
+    - risk_score 1.0 -> threshold 0.99
+
+    :param risk_score: Risk score between 0.0 and 1.0
+    :return: Mapped similarity threshold float
+    """
+    clamped_risk = max(0.0, min(1.0, float(risk_score)))
+    threshold = 0.88 + (0.11 * clamped_risk)
+    return round(threshold, 4)
 
 
 class CacheClient:
@@ -48,14 +67,27 @@ class CacheClient:
             logger.error(f"Error checking/creating Qdrant collection '{COLLECTION_NAME}': {exc}")
             raise
 
-    def lookup(self, embedding: list[float], threshold: float = 0.92) -> dict | None:
+    def lookup(
+        self,
+        embedding: list[float],
+        risk_score: float = None,
+        threshold: float = None
+    ) -> dict | None:
         """
-        Searches the collection for the single nearest neighbor vector.
+        Searches the collection for the single nearest neighbor vector using adaptive thresholding.
 
         :param embedding: 384-dimensional query vector
-        :param threshold: Minimum cosine similarity score required for a cache hit
-        :return: Payload dictionary if similarity >= threshold, else None
+        :param risk_score: Optional risk score in [0.0, 1.0] used to map adaptive threshold
+        :param threshold: Optional fixed similarity threshold override
+        :return: Payload dictionary if similarity >= effective_threshold, else None
         """
+        if risk_score is not None:
+            effective_threshold = map_risk_to_threshold(risk_score)
+        elif threshold is not None:
+            effective_threshold = threshold
+        else:
+            effective_threshold = FIXED_THRESHOLD
+
         try:
             results = self.client.query_points(
                 collection_name=COLLECTION_NAME,
@@ -69,13 +101,14 @@ class CacheClient:
             top_match = points[0]
             similarity_score = top_match.score
 
-            if similarity_score >= threshold:
+            if similarity_score >= effective_threshold:
                 payload = top_match.payload or {}
                 payload["similarity_score"] = similarity_score
-                logger.info(f"Cache HIT! Similarity score {similarity_score:.4f} >= threshold {threshold}")
+                payload["effective_threshold"] = effective_threshold
+                logger.info(f"Cache HIT! Similarity score {similarity_score:.4f} >= threshold {effective_threshold:.4f}")
                 return payload
             else:
-                logger.info(f"Cache MISS. Top similarity score {similarity_score:.4f} < threshold {threshold}")
+                logger.info(f"Cache MISS. Similarity score {similarity_score:.4f} < threshold {effective_threshold:.4f}")
                 return None
 
         except Exception as exc:
