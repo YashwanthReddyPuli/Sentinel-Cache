@@ -112,14 +112,16 @@ Intercepts incoming prompts and compares vector embeddings against historical qu
 
 ### Phase 2: Adaptive Risk-Aware Thresholding
 Static similarity thresholds fail on operational queries where minor wording changes alter intent. SentinelCache dynamically computes similarity cutoffs based on prompt risk score:
-$$\text{effective\_threshold} = 0.88 + (0.11 \times \text{risk\_score})$$
-- **High-Risk Actions** (`cancel`, `delete`, `refund`, `revoke`): Strict thresholds ($\approx 0.957 - 0.99$).
-- **Low-Risk Informational** (`what`, `explain`, `define`): Permissive thresholds ($\approx 0.88 - 0.902$).
+
+`effective_threshold = 0.88 + (0.11 * risk_score)`
+
+- **High-Risk Actions** (`cancel`, `delete`, `refund`, `revoke`): Strict thresholds (~0.957 - 0.99).
+- **Low-Risk Informational** (`what`, `explain`, `define`): Permissive thresholds (~0.88 - 0.902).
 
 ### Phase 3: Dynamic Model Tiering & Automated Fallback Resilience
 - **Tiered Model Routing**:
-  - **`fast_cheap` Tier (Groq 20B)**: Auto-selected when $\text{risk\_score} < 0.50$ (\$0.05 / 1M input tokens).
-  - **`capable_expensive` Tier (Groq 120B)**: Auto-selected when $\text{risk\_score} \ge 0.50$ (\$0.50 / 1M input tokens).
+  - **`fast_cheap` Tier (Groq 20B)**: Auto-selected when `risk_score < 0.50` ($0.05 / 1M input tokens).
+  - **`capable_expensive` Tier (Groq 120B)**: Auto-selected when `risk_score >= 0.50` ($0.50 / 1M input tokens).
 - **Automated Fallback**: Automatically detects upstream provider errors (HTTP 4xx/5xx, timeouts, rate limits) and seamlessly retries against healthy fallback models without user disruption.
 - **Startup Credential Guard**: Loud startup validation that aborts gateway initialization if any configured provider API key is missing or invalid.
 
