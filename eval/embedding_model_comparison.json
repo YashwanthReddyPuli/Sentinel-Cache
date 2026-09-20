@@ -1,0 +1,826 @@
+{
+  "all-MiniLM-L6-v2": {
+    "max_b_score": 0.9716476798057556,
+    "min_a_score": 0.6474606394767761,
+    "a_below_max_b_count": 25,
+    "pair_details": [
+      {
+        "id": 1,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the capital of Germany?",
+        "prompt_b": "Can you tell me what city is Germany's capital?",
+        "cosine_similarity": 0.9435292482376099
+      },
+      {
+        "id": 2,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I reset my account password?",
+        "prompt_b": "What are the steps to change my forgotten password?",
+        "cosine_similarity": 0.8359207510948181
+      },
+      {
+        "id": 3,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Explain quantum computing in simple terms.",
+        "prompt_b": "Can you give me a simple explanation of how quantum computing works?",
+        "cosine_similarity": 0.9344621896743774
+      },
+      {
+        "id": 4,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is semantic caching in AI gateways?",
+        "prompt_b": "Could you define semantic caching for LLM gateways?",
+        "cosine_similarity": 0.7474187016487122
+      },
+      {
+        "id": 5,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "When was the Eiffel Tower built?",
+        "prompt_b": "In what year was construction of the Eiffel Tower completed?",
+        "cosine_similarity": 0.9486501216888428
+      },
+      {
+        "id": 6,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I install Python on Windows 11?",
+        "prompt_b": "What is the procedure for installing Python on a Windows 11 system?",
+        "cosine_similarity": 0.9307389855384827
+      },
+      {
+        "id": 7,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What causes seasonal allergies?",
+        "prompt_b": "Why do people get seasonal allergies during spring?",
+        "cosine_similarity": 0.8854969143867493
+      },
+      {
+        "id": 8,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Define machine learning and deep learning.",
+        "prompt_b": "What are the definitions of deep learning and machine learning?",
+        "cosine_similarity": 0.8831397294998169
+      },
+      {
+        "id": 9,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How can I convert a PDF file to Word format?",
+        "prompt_b": "What is the best way to change a PDF document into Microsoft Word?",
+        "cosine_similarity": 0.8213409781455994
+      },
+      {
+        "id": 10,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the speed of light in a vacuum?",
+        "prompt_b": "How fast does light travel when moving through a vacuum?",
+        "cosine_similarity": 0.8546960353851318
+      },
+      {
+        "id": 11,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Summarize the main plot of Hamlet.",
+        "prompt_b": "Can you give me a brief overview of the plot in Shakespeare's Hamlet?",
+        "cosine_similarity": 0.8927660584449768
+      },
+      {
+        "id": 12,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I create a virtual environment in Python?",
+        "prompt_b": "What command is used to set up a Python virtual environment?",
+        "cosine_similarity": 0.868559718132019
+      },
+      {
+        "id": 13,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the exchange rate between USD and EUR today?",
+        "prompt_b": "How many Euros is one US dollar worth right now?",
+        "cosine_similarity": 0.6474606394767761
+      },
+      {
+        "id": 14,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What are the symptoms of dehydration?",
+        "prompt_b": "How can you tell if someone is suffering from dehydration?",
+        "cosine_similarity": 0.8428450226783752
+      },
+      {
+        "id": 15,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I contact customer support?",
+        "prompt_b": "What is the phone number or email for reaching customer support?",
+        "cosine_similarity": 0.8660488724708557
+      },
+      {
+        "id": 16,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the difference between TCP and UDP?",
+        "prompt_b": "Can you contrast TCP vs UDP networking protocols?",
+        "cosine_similarity": 0.8229690194129944
+      },
+      {
+        "id": 17,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I clear browser cache in Google Chrome?",
+        "prompt_b": "Where in Chrome settings do I wipe my browsing cache?",
+        "cosine_similarity": 0.8514253497123718
+      },
+      {
+        "id": 18,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is photosynthesis and why is it important?",
+        "prompt_b": "Can you explain the process of photosynthesis and its significance?",
+        "cosine_similarity": 0.8572126626968384
+      },
+      {
+        "id": 19,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I format a hard drive on Windows?",
+        "prompt_b": "What steps are needed to format a disk drive in Windows?",
+        "cosine_similarity": 0.881441056728363
+      },
+      {
+        "id": 20,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Who wrote the novel 1984?",
+        "prompt_b": "Who is the author of the book 1984?",
+        "cosine_similarity": 0.9345784187316895
+      },
+      {
+        "id": 41,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Cancel my subscription immediately.",
+        "prompt_b": "Please cancel my subscription right away.",
+        "cosine_similarity": 0.8861839175224304
+      },
+      {
+        "id": 42,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Delete my user account and purge all data.",
+        "prompt_b": "I want my account and all data permanently deleted.",
+        "cosine_similarity": 0.6652082204818726
+      },
+      {
+        "id": 43,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Revoke API access keys for all team members.",
+        "prompt_b": "Please revoke all team members' API keys.",
+        "cosine_similarity": 0.9143869280815125
+      },
+      {
+        "id": 44,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Transfer $500 to account number 987654321.",
+        "prompt_b": "Please send $500 to account 987654321.",
+        "cosine_similarity": 0.7954797744750977
+      },
+      {
+        "id": 45,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Refund my last credit card transaction.",
+        "prompt_b": "I'd like a refund for my most recent card charge.",
+        "cosine_similarity": 0.7863761186599731
+      },
+      {
+        "id": 21,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Cancel my subscription immediately.",
+        "prompt_b": "Downgrade my subscription plan to basic.",
+        "cosine_similarity": 0.5625552535057068
+      },
+      {
+        "id": 22,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Increase my monthly transfer limit to $10,000.",
+        "prompt_b": "Decrease my monthly transfer limit to $1,000.",
+        "cosine_similarity": 0.9110965132713318
+      },
+      {
+        "id": 23,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Delete my user account and purge all data.",
+        "prompt_b": "Deactivate my account temporarily.",
+        "cosine_similarity": 0.6403215527534485
+      },
+      {
+        "id": 24,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Upgrade my account to the premium tier.",
+        "prompt_b": "Terminate my premium account membership.",
+        "cosine_similarity": 0.6748984456062317
+      },
+      {
+        "id": 25,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Refund my last credit card transaction.",
+        "prompt_b": "Charge my credit card for the annual renewal.",
+        "cosine_similarity": 0.5285272598266602
+      },
+      {
+        "id": 26,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Enable two-factor authentication on my account.",
+        "prompt_b": "Disable two-factor authentication on my account.",
+        "cosine_similarity": 0.9020767211914062
+      },
+      {
+        "id": 27,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Approve the pending user permission request.",
+        "prompt_b": "Reject the pending user permission request.",
+        "cosine_similarity": 0.9207526445388794
+      },
+      {
+        "id": 28,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Cancel my order #12345 right now.",
+        "prompt_b": "Do not cancel my order #12345.",
+        "cosine_similarity": 0.9320586919784546
+      },
+      {
+        "id": 29,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Delete all files in the project root directory.",
+        "prompt_b": "Do not delete any files in the project root directory.",
+        "cosine_similarity": 0.9103713631629944
+      },
+      {
+        "id": 30,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Revoke API access keys for all team members.",
+        "prompt_b": "Do not revoke API access keys for team members.",
+        "cosine_similarity": 0.9716476798057556
+      },
+      {
+        "id": 31,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Close my bank checking account today.",
+        "prompt_b": "Do not close my bank checking account.",
+        "cosine_similarity": 0.869577944278717
+      },
+      {
+        "id": 32,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Shut down the production server instance.",
+        "prompt_b": "Keep the production server instance running.",
+        "cosine_similarity": 0.7880262732505798
+      },
+      {
+        "id": 33,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Reset my account login password.",
+        "prompt_b": "Reset my email address verification link.",
+        "cosine_similarity": 0.6346435546875
+      },
+      {
+        "id": 34,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I change my shipping address?",
+        "prompt_b": "How do I change my billing address?",
+        "cosine_similarity": 0.6991986036300659
+      },
+      {
+        "id": 35,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Transfer $500 to account number 987654321.",
+        "prompt_b": "Transfer $500 to account number 123456789.",
+        "cosine_similarity": 0.9703821539878845
+      },
+      {
+        "id": 36,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Export user logs for the production environment.",
+        "prompt_b": "Export user logs for the staging environment.",
+        "cosine_similarity": 0.9102248549461365
+      },
+      {
+        "id": 37,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Grant admin read-write access to User A.",
+        "prompt_b": "Grant admin read-write access to User B.",
+        "cosine_similarity": 0.9126567244529724
+      },
+      {
+        "id": 38,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the capital of Australia?",
+        "prompt_b": "What is the largest city in Australia?",
+        "cosine_similarity": 0.7794046401977539
+      },
+      {
+        "id": 39,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "How do I delete a single record in SQL?",
+        "prompt_b": "How do I drop an entire database table in SQL?",
+        "cosine_similarity": 0.6521685719490051
+      },
+      {
+        "id": 40,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Show sales reports for Q1 2025.",
+        "prompt_b": "Show sales reports for Q4 2025.",
+        "cosine_similarity": 0.9224299788475037
+      }
+    ]
+  },
+  "all-mpnet-base-v2": {
+    "max_b_score": 0.9848161935806274,
+    "min_a_score": 0.5847659707069397,
+    "a_below_max_b_count": 25,
+    "pair_details": [
+      {
+        "id": 1,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the capital of Germany?",
+        "prompt_b": "Can you tell me what city is Germany's capital?",
+        "cosine_similarity": 0.8935537338256836
+      },
+      {
+        "id": 2,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I reset my account password?",
+        "prompt_b": "What are the steps to change my forgotten password?",
+        "cosine_similarity": 0.7864373326301575
+      },
+      {
+        "id": 3,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Explain quantum computing in simple terms.",
+        "prompt_b": "Can you give me a simple explanation of how quantum computing works?",
+        "cosine_similarity": 0.9396428465843201
+      },
+      {
+        "id": 4,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is semantic caching in AI gateways?",
+        "prompt_b": "Could you define semantic caching for LLM gateways?",
+        "cosine_similarity": 0.6663756966590881
+      },
+      {
+        "id": 5,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "When was the Eiffel Tower built?",
+        "prompt_b": "In what year was construction of the Eiffel Tower completed?",
+        "cosine_similarity": 0.942303478717804
+      },
+      {
+        "id": 6,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I install Python on Windows 11?",
+        "prompt_b": "What is the procedure for installing Python on a Windows 11 system?",
+        "cosine_similarity": 0.9398688077926636
+      },
+      {
+        "id": 7,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What causes seasonal allergies?",
+        "prompt_b": "Why do people get seasonal allergies during spring?",
+        "cosine_similarity": 0.871785044670105
+      },
+      {
+        "id": 8,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Define machine learning and deep learning.",
+        "prompt_b": "What are the definitions of deep learning and machine learning?",
+        "cosine_similarity": 0.8789325952529907
+      },
+      {
+        "id": 9,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How can I convert a PDF file to Word format?",
+        "prompt_b": "What is the best way to change a PDF document into Microsoft Word?",
+        "cosine_similarity": 0.9128103256225586
+      },
+      {
+        "id": 10,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the speed of light in a vacuum?",
+        "prompt_b": "How fast does light travel when moving through a vacuum?",
+        "cosine_similarity": 0.8963223695755005
+      },
+      {
+        "id": 11,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Summarize the main plot of Hamlet.",
+        "prompt_b": "Can you give me a brief overview of the plot in Shakespeare's Hamlet?",
+        "cosine_similarity": 0.9003000855445862
+      },
+      {
+        "id": 12,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I create a virtual environment in Python?",
+        "prompt_b": "What command is used to set up a Python virtual environment?",
+        "cosine_similarity": 0.7596927285194397
+      },
+      {
+        "id": 13,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the exchange rate between USD and EUR today?",
+        "prompt_b": "How many Euros is one US dollar worth right now?",
+        "cosine_similarity": 0.7473127245903015
+      },
+      {
+        "id": 14,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What are the symptoms of dehydration?",
+        "prompt_b": "How can you tell if someone is suffering from dehydration?",
+        "cosine_similarity": 0.8507832288742065
+      },
+      {
+        "id": 15,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I contact customer support?",
+        "prompt_b": "What is the phone number or email for reaching customer support?",
+        "cosine_similarity": 0.8761679530143738
+      },
+      {
+        "id": 16,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the difference between TCP and UDP?",
+        "prompt_b": "Can you contrast TCP vs UDP networking protocols?",
+        "cosine_similarity": 0.8203989267349243
+      },
+      {
+        "id": 17,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I clear browser cache in Google Chrome?",
+        "prompt_b": "Where in Chrome settings do I wipe my browsing cache?",
+        "cosine_similarity": 0.8644153475761414
+      },
+      {
+        "id": 18,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is photosynthesis and why is it important?",
+        "prompt_b": "Can you explain the process of photosynthesis and its significance?",
+        "cosine_similarity": 0.8994189500808716
+      },
+      {
+        "id": 19,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I format a hard drive on Windows?",
+        "prompt_b": "What steps are needed to format a disk drive in Windows?",
+        "cosine_similarity": 0.8660593628883362
+      },
+      {
+        "id": 20,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Who wrote the novel 1984?",
+        "prompt_b": "Who is the author of the book 1984?",
+        "cosine_similarity": 0.9428128004074097
+      },
+      {
+        "id": 41,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Cancel my subscription immediately.",
+        "prompt_b": "Please cancel my subscription right away.",
+        "cosine_similarity": 0.911611020565033
+      },
+      {
+        "id": 42,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Delete my user account and purge all data.",
+        "prompt_b": "I want my account and all data permanently deleted.",
+        "cosine_similarity": 0.7584998607635498
+      },
+      {
+        "id": 43,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Revoke API access keys for all team members.",
+        "prompt_b": "Please revoke all team members' API keys.",
+        "cosine_similarity": 0.920240044593811
+      },
+      {
+        "id": 44,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Transfer $500 to account number 987654321.",
+        "prompt_b": "Please send $500 to account 987654321.",
+        "cosine_similarity": 0.8695951700210571
+      },
+      {
+        "id": 45,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Refund my last credit card transaction.",
+        "prompt_b": "I'd like a refund for my most recent card charge.",
+        "cosine_similarity": 0.5847659707069397
+      },
+      {
+        "id": 21,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Cancel my subscription immediately.",
+        "prompt_b": "Downgrade my subscription plan to basic.",
+        "cosine_similarity": 0.5945162177085876
+      },
+      {
+        "id": 22,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Increase my monthly transfer limit to $10,000.",
+        "prompt_b": "Decrease my monthly transfer limit to $1,000.",
+        "cosine_similarity": 0.9409605860710144
+      },
+      {
+        "id": 23,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Delete my user account and purge all data.",
+        "prompt_b": "Deactivate my account temporarily.",
+        "cosine_similarity": 0.5362265706062317
+      },
+      {
+        "id": 24,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Upgrade my account to the premium tier.",
+        "prompt_b": "Terminate my premium account membership.",
+        "cosine_similarity": 0.7010372281074524
+      },
+      {
+        "id": 25,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Refund my last credit card transaction.",
+        "prompt_b": "Charge my credit card for the annual renewal.",
+        "cosine_similarity": 0.44925448298454285
+      },
+      {
+        "id": 26,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Enable two-factor authentication on my account.",
+        "prompt_b": "Disable two-factor authentication on my account.",
+        "cosine_similarity": 0.9072756171226501
+      },
+      {
+        "id": 27,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Approve the pending user permission request.",
+        "prompt_b": "Reject the pending user permission request.",
+        "cosine_similarity": 0.8365538120269775
+      },
+      {
+        "id": 28,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Cancel my order #12345 right now.",
+        "prompt_b": "Do not cancel my order #12345.",
+        "cosine_similarity": 0.8364332914352417
+      },
+      {
+        "id": 29,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Delete all files in the project root directory.",
+        "prompt_b": "Do not delete any files in the project root directory.",
+        "cosine_similarity": 0.8725557327270508
+      },
+      {
+        "id": 30,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Revoke API access keys for all team members.",
+        "prompt_b": "Do not revoke API access keys for team members.",
+        "cosine_similarity": 0.8759138584136963
+      },
+      {
+        "id": 31,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Close my bank checking account today.",
+        "prompt_b": "Do not close my bank checking account.",
+        "cosine_similarity": 0.7785710096359253
+      },
+      {
+        "id": 32,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Shut down the production server instance.",
+        "prompt_b": "Keep the production server instance running.",
+        "cosine_similarity": 0.8650639057159424
+      },
+      {
+        "id": 33,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Reset my account login password.",
+        "prompt_b": "Reset my email address verification link.",
+        "cosine_similarity": 0.6429833769798279
+      },
+      {
+        "id": 34,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I change my shipping address?",
+        "prompt_b": "How do I change my billing address?",
+        "cosine_similarity": 0.8122644424438477
+      },
+      {
+        "id": 35,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Transfer $500 to account number 987654321.",
+        "prompt_b": "Transfer $500 to account number 123456789.",
+        "cosine_similarity": 0.983790397644043
+      },
+      {
+        "id": 36,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Export user logs for the production environment.",
+        "prompt_b": "Export user logs for the staging environment.",
+        "cosine_similarity": 0.8803296685218811
+      },
+      {
+        "id": 37,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Grant admin read-write access to User A.",
+        "prompt_b": "Grant admin read-write access to User B.",
+        "cosine_similarity": 0.9600715041160583
+      },
+      {
+        "id": 38,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the capital of Australia?",
+        "prompt_b": "What is the largest city in Australia?",
+        "cosine_similarity": 0.8441026210784912
+      },
+      {
+        "id": 39,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "How do I delete a single record in SQL?",
+        "prompt_b": "How do I drop an entire database table in SQL?",
+        "cosine_similarity": 0.582414448261261
+      },
+      {
+        "id": 40,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Show sales reports for Q1 2025.",
+        "prompt_b": "Show sales reports for Q4 2025.",
+        "cosine_similarity": 0.9848161935806274
+      }
+    ]
+  }
+}

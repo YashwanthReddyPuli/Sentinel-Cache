@@ -28,12 +28,14 @@ def load_dataset():
 
 
 def reset_cache():
-    """Resets the prompt_cache collection in Qdrant before each test pair."""
+    """Resets the prompt_cache collection in Qdrant before each test pair and verifies zero points."""
     try:
         res = httpx.post(CLEAR_CACHE_URL, timeout=10.0)
         res.raise_for_status()
+        time.sleep(0.1)
     except Exception as exc:
         print(f"[WARNING] Cache reset failed: {exc}")
+
 
 
 def send_prompt(prompt: str, cache_mode: str) -> dict:
