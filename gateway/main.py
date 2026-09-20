@@ -1,10 +1,12 @@
+
 import os
 import time
+import asyncio
 import logging
 from typing import Dict, Any, Tuple
 from contextlib import asynccontextmanager
 import httpx
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Query
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -140,22 +142,31 @@ async def call_provider(provider_config: Dict[str, Any], prompt: str) -> Tuple[s
     else:
         endpoint_url = base_url
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        try:
-            res = await client.post(endpoint_url, headers=headers, json=payload)
-            res.raise_for_status()
-            data = res.json()
-        except httpx.HTTPStatusError as exc:
-            logger.error(
-                f"Provider '{provider_config['name']}' HTTP error: "
-                f"Status={exc.response.status_code}, Exception={type(exc).__name__}, ResponseBody={exc.response.text}"
-            )
-            raise
-        except Exception as exc:
-            logger.error(
-                f"Provider '{provider_config['name']}' failed with Exception={type(exc).__name__}: {str(exc)}"
-            )
-            raise
+    async with httpx.AsyncClient(timeout=35.0) as client:
+        max_retries = 3
+        backoff = 2.0
+        for attempt in range(max_retries + 1):
+            try:
+                res = await client.post(endpoint_url, headers=headers, json=payload)
+                res.raise_for_status()
+                data = res.json()
+                break
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429 and attempt < max_retries:
+                    logger.warning(f"Provider '{provider_config['name']}' rate limited (429). Retrying in {backoff}s... (Attempt {attempt+1}/{max_retries})")
+                    await asyncio.sleep(backoff)
+                    backoff *= 2.0
+                    continue
+                logger.error(
+                    f"Provider '{provider_config['name']}' HTTP error: "
+                    f"Status={exc.response.status_code}, Exception={type(exc).__name__}, ResponseBody={exc.response.text}"
+                )
+                raise
+            except Exception as exc:
+                logger.error(
+                    f"Provider '{provider_config['name']}' failed with Exception={type(exc).__name__}: {str(exc)}"
+                )
+                raise
 
     response_text = data["choices"][0]["message"]["content"]
     usage = data.get("usage", {})
@@ -166,28 +177,53 @@ async def call_provider(provider_config: Dict[str, Any], prompt: str) -> Tuple[s
 
 
 @app.post(
+    "/v1/cache/clear",
+    status_code=status.HTTP_200_OK,
+    summary="Reset prompt cache collection"
+)
+async def clear_cache():
+    """Resets the prompt_cache Qdrant collection (used by benchmark runner)."""
+    if cache_client:
+        cache_client.clear_collection()
+        return {"status": "cleared"}
+    raise HTTPException(status_code=500, detail="Cache client not initialized")
+
+
+@app.post(
     "/v1/chat/completions",
     response_model=ChatResponse,
     status_code=status.HTTP_200_OK,
     summary="Send prompt with adaptive risk assessment, semantic cache lookup, dynamic provider routing, and automated fallback"
 )
-async def chat_completions(request: ChatRequest):
+async def chat_completions(
+    request: ChatRequest,
+    cache_mode: str = Query("adaptive", description="Cache evaluation mode: 'adaptive', 'fixed', or 'disabled'")
+):
     """
     Handles prompt completion requests:
     1. Classifies prompt risk score & mapped adaptive similarity threshold.
-    2. Performs vector cache lookup in Qdrant; if hit, returns cached response instantly ($0 cost).
+    2. Performs vector cache lookup in Qdrant (supports cache_mode='fixed'|'adaptive'|'disabled').
     3. If cache miss, routes request dynamically to fast_cheap or capable_expensive LLM provider.
     4. Executes fallback resilience if primary provider API call fails.
     5. Calculates estimated USD cost and returns complete response telemetry.
     """
     total_start_time = time.perf_counter()
 
+    # Normalize cache_mode
+    mode = cache_mode.lower().strip()
+    if mode not in ("adaptive", "fixed", "disabled"):
+        mode = "adaptive"
+
     # ----------------------------------------------------
     # Step 1: Prompt Risk & Intent Classification
     # ----------------------------------------------------
     risk_info = classify_risk(request.prompt)
     risk_score = risk_info["risk_score"]
-    effective_threshold = map_risk_to_threshold(risk_score)
+
+    if mode == "fixed":
+        effective_threshold = FIXED_THRESHOLD
+    else:
+        effective_threshold = map_risk_to_threshold(risk_score)
 
     risk_assessment_obj = RiskAssessment(
         risk_score=risk_score,
@@ -207,10 +243,13 @@ async def chat_completions(request: ChatRequest):
     cached_hit = None
     prompt_embedding = None
 
-    if embedder and cache_client:
+    if mode != "disabled" and embedder and cache_client:
         try:
             prompt_embedding = embedder.embed(request.prompt)
-            cached_hit = cache_client.lookup(prompt_embedding, risk_score=risk_score)
+            if mode == "fixed":
+                cached_hit = cache_client.lookup(prompt_embedding, threshold=FIXED_THRESHOLD)
+            else:
+                cached_hit = cache_client.lookup(prompt_embedding, risk_score=risk_score)
         except Exception as exc:
             logger.warning(f"Cache lookup failed: {exc}. Proceeding to LLM provider.")
 
@@ -226,7 +265,7 @@ async def chat_completions(request: ChatRequest):
             provider=route_info["provider"],
             model=route_info["model"],
             tier=route_info["tier"],
-            reasoning=f"{route_info['reasoning']} (Served from cache: LLM call bypassed)."
+            reasoning=f"{route_info['reasoning']} (Served from cache: LLM call bypassed, mode='{mode}')."
         )
 
         return ChatResponse(

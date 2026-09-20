@@ -1,0 +1,448 @@
+"""
+Benchmark Dataset Generator for SentinelCache (Phase 4).
+
+Generates a 45-pair labeled benchmark dataset saved to eval/benchmark_dataset.json:
+- Category A1: Low-Risk True Paraphrases (20 pairs, should_cache_hit=True, risk_tier="low")
+- Category A2: High-Risk True Paraphrases (5 pairs, should_cache_hit=True, risk_tier="high")
+- Category B: Semantically Adjacent Intent-Distinct (20 pairs, should_cache_hit=False, risk_tier="high"/"low")
+"""
+
+import json
+import os
+
+DATASET_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "benchmark_dataset.json"))
+
+DATASET = [
+    # =========================================================================
+    # Category A1: Low-Risk True Paraphrases (20 pairs)
+    # Label: should_cache_hit = True, Risk Tier: "low"
+    # =========================================================================
+    {
+        "id": 1,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the capital of Germany?",
+        "prompt_b": "Can you tell me what city is Germany's capital?",
+        "description": "Geography query paraphrase"
+    },
+    {
+        "id": 2,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I reset my account password?",
+        "prompt_b": "What are the steps to change my forgotten password?",
+        "description": "Password reset FAQ paraphrase"
+    },
+    {
+        "id": 3,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Explain quantum computing in simple terms.",
+        "prompt_b": "Can you give me a simple explanation of how quantum computing works?",
+        "description": "Tech concept paraphrase"
+    },
+    {
+        "id": 4,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is semantic caching in AI gateways?",
+        "prompt_b": "Could you define semantic caching for LLM gateways?",
+        "description": "Semantic caching definition paraphrase"
+    },
+    {
+        "id": 5,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "When was the Eiffel Tower built?",
+        "prompt_b": "In what year was construction of the Eiffel Tower completed?",
+        "description": "History trivia paraphrase"
+    },
+    {
+        "id": 6,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I install Python on Windows 11?",
+        "prompt_b": "What is the procedure for installing Python on a Windows 11 system?",
+        "description": "Software setup paraphrase"
+    },
+    {
+        "id": 7,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What causes seasonal allergies?",
+        "prompt_b": "Why do people get seasonal allergies during spring?",
+        "description": "Health query paraphrase"
+    },
+    {
+        "id": 8,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Define machine learning and deep learning.",
+        "prompt_b": "What are the definitions of deep learning and machine learning?",
+        "description": "AI definitions paraphrase"
+    },
+    {
+        "id": 9,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How can I convert a PDF file to Word format?",
+        "prompt_b": "What is the best way to change a PDF document into Microsoft Word?",
+        "description": "File conversion paraphrase"
+    },
+    {
+        "id": 10,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the speed of light in a vacuum?",
+        "prompt_b": "How fast does light travel when moving through a vacuum?",
+        "description": "Physics query paraphrase"
+    },
+    {
+        "id": 11,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Summarize the main plot of Hamlet.",
+        "prompt_b": "Can you give me a brief overview of the plot in Shakespeare's Hamlet?",
+        "description": "Literature summary paraphrase"
+    },
+    {
+        "id": 12,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I create a virtual environment in Python?",
+        "prompt_b": "What command is used to set up a Python virtual environment?",
+        "description": "Dev CLI paraphrase"
+    },
+    {
+        "id": 13,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the exchange rate between USD and EUR today?",
+        "prompt_b": "How many Euros is one US dollar worth right now?",
+        "description": "Currency inquiry paraphrase"
+    },
+    {
+        "id": 14,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What are the symptoms of dehydration?",
+        "prompt_b": "How can you tell if someone is suffering from dehydration?",
+        "description": "Medical symptoms paraphrase"
+    },
+    {
+        "id": 15,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I contact customer support?",
+        "prompt_b": "What is the phone number or email for reaching customer support?",
+        "description": "Support contact paraphrase"
+    },
+    {
+        "id": 16,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the difference between TCP and UDP?",
+        "prompt_b": "Can you contrast TCP vs UDP networking protocols?",
+        "description": "Networking protocol paraphrase"
+    },
+    {
+        "id": 17,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I clear browser cache in Google Chrome?",
+        "prompt_b": "Where in Chrome settings do I wipe my browsing cache?",
+        "description": "Browser cache paraphrase"
+    },
+    {
+        "id": 18,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is photosynthesis and why is it important?",
+        "prompt_b": "Can you explain the process of photosynthesis and its significance?",
+        "description": "Biology process paraphrase"
+    },
+    {
+        "id": 19,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I format a hard drive on Windows?",
+        "prompt_b": "What steps are needed to format a disk drive in Windows?",
+        "description": "OS disk formatting paraphrase"
+    },
+    {
+        "id": 20,
+        "category": "A1 - Low-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Who wrote the novel 1984?",
+        "prompt_b": "Who is the author of the book 1984?",
+        "description": "Book author paraphrase"
+    },
+
+    # =========================================================================
+    # Category A2: High-Risk True Paraphrases (5 pairs)
+    # Label: should_cache_hit = True, Risk Tier: "high"
+    # =========================================================================
+    {
+        "id": 41,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Cancel my subscription immediately.",
+        "prompt_b": "Please cancel my subscription right away.",
+        "description": "High-risk cancellation paraphrase"
+    },
+    {
+        "id": 42,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Delete my user account and purge all data.",
+        "prompt_b": "I want my account and all data permanently deleted.",
+        "description": "High-risk account deletion paraphrase"
+    },
+    {
+        "id": 43,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Revoke API access keys for all team members.",
+        "prompt_b": "Please revoke all team members' API keys.",
+        "description": "High-risk permission revocation paraphrase"
+    },
+    {
+        "id": 44,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Transfer $500 to account number 987654321.",
+        "prompt_b": "Please send $500 to account 987654321.",
+        "description": "High-risk financial transfer paraphrase"
+    },
+    {
+        "id": 45,
+        "category": "A2 - High-Risk True Paraphrases",
+        "label": "should_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Refund my last credit card transaction.",
+        "prompt_b": "I'd like a refund for my most recent card charge.",
+        "description": "High-risk refund paraphrase"
+    },
+
+    # =========================================================================
+    # Category B: Semantically Adjacent Intent-Distinct (20 pairs)
+    # Label: should_NOT_cache_hit = False, Risk Tier: "high"/"low"
+    # =========================================================================
+    {
+        "id": 21,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Cancel my subscription immediately.",
+        "prompt_b": "Downgrade my subscription plan to basic.",
+        "description": "Cancel vs Downgrade action flip"
+    },
+    {
+        "id": 22,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Increase my monthly transfer limit to $10,000.",
+        "prompt_b": "Decrease my monthly transfer limit to $1,000.",
+        "description": "Limit Increase vs Decrease flip"
+    },
+    {
+        "id": 23,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Delete my user account and purge all data.",
+        "prompt_b": "Deactivate my account temporarily.",
+        "description": "Delete vs Deactivate action flip"
+    },
+    {
+        "id": 24,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Upgrade my account to the premium tier.",
+        "prompt_b": "Terminate my premium account membership.",
+        "description": "Upgrade vs Terminate membership flip"
+    },
+    {
+        "id": 25,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Refund my last credit card transaction.",
+        "prompt_b": "Charge my credit card for the annual renewal.",
+        "description": "Refund vs Charge monetary flip"
+    },
+    {
+        "id": 26,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Enable two-factor authentication on my account.",
+        "prompt_b": "Disable two-factor authentication on my account.",
+        "description": "Enable vs Disable security toggle"
+    },
+    {
+        "id": 27,
+        "category": "B - Intent-Distinct (Opposite Action)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Approve the pending user permission request.",
+        "prompt_b": "Reject the pending user permission request.",
+        "description": "Approve vs Reject permission flip"
+    },
+    {
+        "id": 28,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Cancel my order #12345 right now.",
+        "prompt_b": "Do not cancel my order #12345.",
+        "description": "Direct negation of cancel order"
+    },
+    {
+        "id": 29,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Delete all files in the project root directory.",
+        "prompt_b": "Do not delete any files in the project root directory.",
+        "description": "Direct negation of file deletion"
+    },
+    {
+        "id": 30,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Revoke API access keys for all team members.",
+        "prompt_b": "Do not revoke API access keys for team members.",
+        "description": "Direct negation of API key revocation"
+    },
+    {
+        "id": 31,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Close my bank checking account today.",
+        "prompt_b": "Do not close my bank checking account.",
+        "description": "Direct negation of bank account closure"
+    },
+    {
+        "id": 32,
+        "category": "B - Intent-Distinct (Negation Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Shut down the production server instance.",
+        "prompt_b": "Keep the production server instance running.",
+        "description": "Direct negation of server shutdown"
+    },
+    {
+        "id": 33,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Reset my account login password.",
+        "prompt_b": "Reset my email address verification link.",
+        "description": "Password vs Email entity reset flip"
+    },
+    {
+        "id": 34,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "How do I change my shipping address?",
+        "prompt_b": "How do I change my billing address?",
+        "description": "Shipping vs Billing address entity flip"
+    },
+    {
+        "id": 35,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Transfer $500 to account number 987654321.",
+        "prompt_b": "Transfer $500 to account number 123456789.",
+        "description": "Target account number entity flip"
+    },
+    {
+        "id": 36,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Export user logs for the production environment.",
+        "prompt_b": "Export user logs for the staging environment.",
+        "description": "Prod vs Staging environment entity flip"
+    },
+    {
+        "id": 37,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "Grant admin read-write access to User A.",
+        "prompt_b": "Grant admin read-write access to User B.",
+        "description": "User A vs User B target permissions flip"
+    },
+    {
+        "id": 38,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "What is the capital of Australia?",
+        "prompt_b": "What is the largest city in Australia?",
+        "description": "Capital vs Largest City geography query"
+    },
+    {
+        "id": 39,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "high",
+        "prompt_a": "How do I delete a single record in SQL?",
+        "prompt_b": "How do I drop an entire database table in SQL?",
+        "description": "Single record vs Table drop scope flip"
+    },
+    {
+        "id": 40,
+        "category": "B - Intent-Distinct (Entity Flip)",
+        "label": "should_NOT_cache_hit",
+        "risk_tier": "low",
+        "prompt_a": "Show sales reports for Q1 2025.",
+        "prompt_b": "Show sales reports for Q4 2025.",
+        "description": "Q1 vs Q4 quarter financial report flip"
+    }
+]
+
+
+def generate_dataset():
+    """Writes the benchmark dataset array to eval/benchmark_dataset.json."""
+    os.makedirs(os.path.dirname(DATASET_PATH), exist_ok=True)
+    with open(DATASET_PATH, "w", encoding="utf-8") as f:
+        json.dump(DATASET, f, indent=2)
+    print(f"Successfully generated benchmark dataset at {DATASET_PATH}")
+    print(f"Total prompt pairs: {len(DATASET)}")
+
+
+if __name__ == "__main__":
+    generate_dataset()

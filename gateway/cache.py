@@ -67,6 +67,17 @@ class CacheClient:
             logger.error(f"Error checking/creating Qdrant collection '{COLLECTION_NAME}': {exc}")
             raise
 
+    def clear_collection(self) -> None:
+        """Deletes and recreates the prompt_cache collection to clear all entries."""
+        try:
+            if self.client.collection_exists(COLLECTION_NAME):
+                self.client.delete_collection(COLLECTION_NAME)
+            self.create_collection()
+            logger.info(f"Collection '{COLLECTION_NAME}' reset successfully.")
+        except Exception as exc:
+            logger.error(f"Failed to reset collection '{COLLECTION_NAME}': {exc}")
+            raise
+
     def lookup(
         self,
         embedding: list[float],

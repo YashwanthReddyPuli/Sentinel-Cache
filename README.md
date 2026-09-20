@@ -105,5 +105,40 @@ curl -X POST "http://localhost:8000/v1/chat/completions" \
     "reasoning": "Risk score 0.10 < 0.50 cutoff -> Selected fast_cheap tier. Selected healthy provider 'Groq'."
   },
   "estimated_cost_usd": 0.00000155
-}
-```
+---
+
+## Phase 4: Empirical Evaluation Benchmark
+
+Phase 4 provides empirical evaluation of SentinelCache across **45 labeled prompt pairs** comparing three operating modes: `Disabled` (no cache), `Fixed Threshold` (0.92 constant), and `Adaptive Threshold` (0.88 - 0.99 dynamic risk-based linear interpolation).
+
+### Dataset Composition
+- **Category A1 (Low-Risk True Paraphrases, n=20)**: Semantically identical queries (`label`: `should_cache_hit`, `risk_tier`: `low`).
+- **Category A2 (High-Risk True Paraphrases, n=5)**: High-risk action paraphrases (`label`: `should_cache_hit`, `risk_tier`: `high`).
+- **Category B (Semantically-Adjacent Intent-Distinct Pairs, n=20)**: Near-neighbor prompts with contrasting intent (`label`: `should_NOT_cache_hit`, `risk_tier`: `mixed`).
+
+### Evaluation Results Table
+
+| Metric | Disabled (No Cache) | Fixed Threshold (0.92) | Adaptive Threshold (0.88-0.99) |
+| :--- | :---: | :---: | :---: |
+| **Total Tested Pairs** | 45 | 45 | 45 |
+| **True Positives (TP)** | 0 | 5 | 5 |
+| **False Positives (FP - Safety Violations)** | 0 | 5 | 2 |
+| **True Negatives (TN)** | 20 | 15 | 18 |
+| **False Negatives (FN)** | 25 | 20 | 20 |
+| **Precision** | 0.0000 | 0.5000 | **0.7143** |
+| **Recall (Overall)** | 0.0000 | 0.2000 | 0.2000 |
+| **Recall: A1 Low-Risk Paraphrases** | 0.0000 | 0.2500 | 0.2500 |
+| **Recall: A2 High-Risk Paraphrases** | 0.0000 | 0.0000 | 0.0000 |
+| **False Positive Rate (FPR)** | 0.0000 | 0.2500 | **0.1000** |
+| **False Negative Rate (FNR)** | 1.0000 | 0.8000 | 0.8000 |
+| **Overall Cache Hit Rate** | 0.0000 | 0.2222 | 0.1556 |
+| **Average Latency (ms)** | 3193.10ms | 2818.11ms | 3080.75ms |
+| **Median Latency (ms)** | 2291.27ms | 2222.24ms | **1518.52ms** |
+
+### Benchmark Scripts & Charts
+- Run benchmark suite: `python eval/run_benchmark.py`
+- Generate plots: `python eval/plot_results.py`
+  - [`eval/precision_recall_comparison.png`](eval/precision_recall_comparison.png)
+  - [`eval/recall_by_risk_tier.png`](eval/recall_by_risk_tier.png)
+  - [`eval/latency_comparison.png`](eval/latency_comparison.png)
+
