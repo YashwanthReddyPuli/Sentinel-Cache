@@ -1,27 +1,57 @@
-# SentinelCache Benchmark Logs
+# SentinelCache Phase 4.5: Hybrid Guard Layer Benchmark Report
 
-Use this log file to track latency, cache hit ratios, routing decisions, and overall gateway performance across test runs.
+This document details the architectural design, implementation, and empirical evaluation of SentinelCache's **Phase 4.5 Hybrid Guard Verification Layer**.
 
-| Date | Test Description | Latency (ms) | Notes |
-| :--- | :--- | :--- | :--- |
-| 2026-09-06 | Baseline Groq llama-3.1-8b-instant passthrough | -- | Initial Phase 0 verification |
-| 2026-09-06 | Initial query: 'What is semantic caching in AI gateways?' | 3135.8 | Cache MISS (source: llm, lookup overhead: 94.2ms) |
-| 2026-09-06 | Paraphrase: 'Can you explain semantic caching for AI gateways?' | 12.3 | Cache HIT (source: cache, similarity >= 0.92, 254x speedup) |
-| 2026-09-06 | Unrelated: 'What's the weather like today?' | 1102.9 | Cache MISS (source: llm, lookup overhead: 11.1ms) |
-| 2026-09-06 | Phase 2 High Risk 1: 'Cancel my subscription' | 1293.3 | Cache MISS (risk: 0.70, strict threshold: 0.9570) |
-| 2026-09-06 | Phase 2 High Risk 2: 'Downgrade my subscription' | 1232.7 | Cache MISS (source: llm, strict threshold 0.9570 prevented false hit) |
-| 2026-09-06 | Phase 2 Low Risk 1: 'What is semantic caching?' | 3132.9 | Cache MISS (risk: 0.10, loose threshold: 0.8910) |
-| 2026-09-06 | Phase 2 Low Risk 2: 'Can you explain semantic caching?' | 13.7 | Cache HIT (source: cache, loose threshold 0.8910 allowed hit) |
-| 2026-09-06 | Phase 3 Low Risk: 'What is the capital of Germany?' | 982.7 | Routed to fast_cheap (Groq `openai/gpt-oss-20b`, $0.00001006 USD) |
-| 2026-09-06 | Phase 3 High Risk: 'Revoke all user permissions immediately' | 1190.8 | Routed to capable_expensive (Groq-Capable `openai/gpt-oss-120b`, $0.00017930 USD, NO fallback) |
-| 2026-09-06 | Phase 3 Outage Fallback: 'What is the speed of sound in air?' | 1317.9 | Primary Groq failed -> Fallback SUCCESS to Groq-Secondary (qwen3.6-27b, $0.00004136 USD) |
+---
 
-## Lessons Learned & Architectural Safety Enhancements (Phase 3 Debugging)
+## 🏛️ Architecture & Flow Diagram
 
-### Single-Provider Free-Tier Capability Model Routing
-- **Scope Alignment**: Paid external provider keys (such as OpenAI) are out of scope for non-funded deployment budgets. Rather than silently masking invalid/missing external keys, Phase 3 dynamic routing was re-architected to perform capability-based model tiering using Groq's model spectrum:
-  - **`fast_cheap` Tier**: `openai/gpt-oss-20b` ($0.05 / 1M input, $0.08 / 1M output).
-  - **`capable_expensive` Tier**: `openai/gpt-oss-120b` ($0.50 / 1M input, $0.80 / 1M output).
-- **Loud Startup Key Validation**: Added a mandatory startup safety check in `gateway/main.py`. The gateway verifies that all configured provider `api_key_env_var` keys are non-empty and valid. If any key is missing or set to placeholder, gateway startup **fails immediately with a loud `RuntimeError`**, preventing silent key borrowing or fallback degradation.
-- **Cost Differential Telemetry**: Both tiers hit Groq using `GROQ_API_KEY`, but token costs reflect real model parameter differentials (17.8x cost difference for high-risk complex reasoning on 120B model vs 20B fast model).
+```mermaid
+graph TD
+    A[Client User Prompt] -->|HTTP POST /v1/chat/completions| B[FastAPI Interceptor]
+    B --> C[Intent Risk Classifier]
+    C -->|Risk Score 0.0 - 1.0| D[Adaptive Threshold Calculator]
+    B --> E[Vector Embedder: all-MiniLM-L6-v2]
+    E -->|384-dim Vector| F[Qdrant Nearest-Neighbor Search]
+    D -->|effective_threshold| F
+    
+    F -->|Sim < Threshold| G[Cache MISS: LLM Route Selection]
+    F -->|Sim >= Threshold| H{Hybrid Guard Verification Layer}
+    
+    H -->|NegationGuard Check| I[detect_negation_mismatch]
+    H -->|EntityGuard Check| J[detect_entity_mismatch]
+    
+    I -->|Mismatch Detected| K[Cache HIT Blocked: Force Cache MISS]
+    J -->|Mismatch Detected| K
+    K --> G
+    
+    I -->|Pass| L{All Guards Passed?}
+    J -->|Pass| L
+    L -->|Yes| M[Cache HIT: Return Cached LLM Response]
+    
+    G --> N[Tiered LLM Provider Dispatch & Fallback]
+    N --> O[Store Embedding & Response in Qdrant]
+    O --> P[Return Telemetry Response]
+    M --> P
+```
 
+---
+
+## 📊 4-Mode Evaluation Benchmark Comparison Table
+
+Evaluated across all 45 benchmark pairs (180 total pair executions):
+
+| Metric | Disabled (No Cache) | Fixed Threshold (0.92) | Adaptive Threshold (0.88-0.99) | Hybrid Guard Mode (Production) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Total Tested Pairs** | 45 | 45 | 45 | 45 |
+| **True Positives (TP)** | 0 | 5 | 5 | 3 |
+| **False Positives (FP - Safety Failures)** | 0 | 5 | 2 | **0 (0.0% FPR)** |
+| **True Negatives (TN)** | 20 | 15 | 18 | **20 (100.0% Security)** |
+| **False Negatives (FN)** | 25 | 20 | 20 | 22 |
+| **Precision** | 0.0000 | 0.5000 | 0.7143 | **1.0000 (100% Precision)** |
+| **Recall (Overall)** | 0.0000 | 0.2000 | 0.2000 | 0.1200 |
+| **Recall: Low-Risk Paraphrases (A1)** | 0.0000 | 0.2500 | 0.2500 | 0.1500 |
+| **Recall: High-Risk Paraphrases (A2)** | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| **False Positive Rate (FPR)** | 0.0000 | 0.2500 | 0.1000 | **0.0000 (0% False Hits)** |
+| **False Negative Rate (FNR)** | 1.0000 | 0.8000 | 0.8000 | 0.8800 |
+| **Overall Cache Hit Rate** | 0.0000 | 0.2222 | 0.1556 | 0.0667 |

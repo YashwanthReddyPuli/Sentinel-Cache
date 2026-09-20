@@ -63,13 +63,13 @@ def send_prompt(prompt: str, cache_mode: str) -> dict:
 
 def run_benchmark():
     dataset = load_dataset()
-    modes = ["disabled", "fixed", "adaptive"]
+    modes = ["disabled", "fixed", "adaptive", "hybrid"]
     
     raw_results = []
     summary_metrics = {}
 
     print("=" * 80)
-    print("STARTING SENTINELCACHE PHASE 4 EMPIRICAL EVALUATION SUITE")
+    print("STARTING SENTINELCACHE PHASE 4.5 EMPIRICAL EVALUATION SUITE")
     print(f"Total prompt pairs: {len(dataset)} | Modes to evaluate: {modes}")
     print("=" * 80)
 
@@ -112,13 +112,6 @@ def run_benchmark():
             risk_assessment = resp_b.get("risk_assessment", {})
             risk_score = risk_assessment.get("risk_score", 0.5)
             effective_threshold = risk_assessment.get("effective_threshold", 0.92)
-            
-            # Extract similarity score if available in routing decision reasoning or telemetry
-            similarity_score = None
-            routing_reasoning = resp_b.get("routing_decision", {}).get("reasoning", "")
-            if "Served from cache" in routing_reasoning:
-                # In hit case, effective_threshold was met
-                similarity_score = effective_threshold
             
             # Classification outcome type
             if should_hit and actual_hit:
@@ -210,37 +203,38 @@ def run_benchmark():
 
 def generate_summary_markdown(summary):
     md_lines = [
-        "# SentinelCache Phase 4 Empirical Evaluation Results Summary",
+        "# SentinelCache Phase 4.5 Empirical Evaluation Results Summary",
         "",
-        "This table summarizes the performance metrics comparing baseline (no caching), fixed-threshold caching (0.92), and risk-aware adaptive thresholding (0.88 - 0.99) across 45 prompt pairs.",
+        "This table summarizes the performance metrics comparing baseline (no caching), fixed-threshold caching (0.92), risk-aware adaptive thresholding (0.88 - 0.99), and production hybrid mode (adaptive threshold + Negation/Entity guards) across 45 prompt pairs.",
         "",
-        "| Metric | Disabled (No Cache) | Fixed Threshold (0.92) | Adaptive Threshold (0.88-0.99) |",
-        "| :--- | :---: | :---: | :---: |"
+        "| Metric | Disabled (No Cache) | Fixed Threshold (0.92) | Adaptive Threshold (0.88-0.99) | Hybrid Guard Mode (Production) |",
+        "| :--- | :---: | :---: | :---: | :---: |"
     ]
 
     m_dis = summary.get("disabled", {})
     m_fix = summary.get("fixed", {})
     m_ada = summary.get("adaptive", {})
+    m_hyb = summary.get("hybrid", {})
 
     metrics_rows = [
-        ("Total Tested Pairs", f"{m_dis.get('total_pairs', 45)}", f"{m_fix.get('total_pairs', 45)}", f"{m_ada.get('total_pairs', 45)}"),
-        ("True Positives (TP)", f"{m_dis.get('TP', 0)}", f"{m_fix.get('TP', 0)}", f"{m_ada.get('TP', 0)}"),
-        ("False Positives (FP - Costly Failures)", f"{m_dis.get('FP', 0)}", f"{m_fix.get('FP', 0)}", f"{m_ada.get('FP', 0)}"),
-        ("True Negatives (TN)", f"{m_dis.get('TN', 0)}", f"{m_fix.get('TN', 0)}", f"{m_ada.get('TN', 0)}"),
-        ("False Negatives (FN)", f"{m_dis.get('FN', 0)}", f"{m_fix.get('FN', 0)}", f"{m_ada.get('FN', 0)}"),
-        ("Precision", f"{m_dis.get('precision', 0.0):.4f}", f"{m_fix.get('precision', 0.0):.4f}", f"{m_ada.get('precision', 0.0):.4f}"),
-        ("Recall (Overall)", f"{m_dis.get('recall', 0.0):.4f}", f"{m_fix.get('recall', 0.0):.4f}", f"{m_ada.get('recall', 0.0):.4f}"),
-        ("Recall: A1 Low-Risk Paraphrases", f"{m_dis.get('recall_low_risk_a1', 0.0):.4f}", f"{m_fix.get('recall_low_risk_a1', 0.0):.4f}", f"{m_ada.get('recall_low_risk_a1', 0.0):.4f}"),
-        ("Recall: A2 High-Risk Paraphrases", f"{m_dis.get('recall_high_risk_a2', 0.0):.4f}", f"{m_fix.get('recall_high_risk_a2', 0.0):.4f}", f"{m_ada.get('recall_high_risk_a2', 0.0):.4f}"),
-        ("False Positive Rate (FPR)", f"{m_dis.get('fpr', 0.0):.4f}", f"{m_fix.get('fpr', 0.0):.4f}", f"{m_ada.get('fpr', 0.0):.4f}"),
-        ("False Negative Rate (FNR)", f"{m_dis.get('fnr', 0.0):.4f}", f"{m_fix.get('fnr', 0.0):.4f}", f"{m_ada.get('fnr', 0.0):.4f}"),
-        ("Overall Cache Hit Rate", f"{m_dis.get('overall_hit_rate', 0.0):.4f}", f"{m_fix.get('overall_hit_rate', 0.0):.4f}", f"{m_ada.get('overall_hit_rate', 0.0):.4f}"),
-        ("Average Latency (ms)", f"{m_dis.get('avg_latency_ms', 0.0)}ms", f"{m_fix.get('avg_latency_ms', 0.0)}ms", f"{m_ada.get('avg_latency_ms', 0.0)}ms"),
-        ("Median Latency (ms)", f"{m_dis.get('median_latency_ms', 0.0)}ms", f"{m_fix.get('median_latency_ms', 0.0)}ms", f"{m_ada.get('median_latency_ms', 0.0)}ms")
+        ("Total Tested Pairs", f"{m_dis.get('total_pairs', 45)}", f"{m_fix.get('total_pairs', 45)}", f"{m_ada.get('total_pairs', 45)}", f"{m_hyb.get('total_pairs', 45)}"),
+        ("True Positives (TP)", f"{m_dis.get('TP', 0)}", f"{m_fix.get('TP', 0)}", f"{m_ada.get('TP', 0)}", f"{m_hyb.get('TP', 0)}"),
+        ("False Positives (FP - Safety Failures)", f"{m_dis.get('FP', 0)}", f"{m_fix.get('FP', 0)}", f"{m_ada.get('FP', 0)}", f"{m_hyb.get('FP', 0)}"),
+        ("True Negatives (TN)", f"{m_dis.get('TN', 0)}", f"{m_fix.get('TN', 0)}", f"{m_ada.get('TN', 0)}", f"{m_hyb.get('TN', 0)}"),
+        ("False Negatives (FN)", f"{m_dis.get('FN', 0)}", f"{m_fix.get('FN', 0)}", f"{m_ada.get('FN', 0)}", f"{m_hyb.get('FN', 0)}"),
+        ("Precision", f"{m_dis.get('precision', 0.0):.4f}", f"{m_fix.get('precision', 0.0):.4f}", f"{m_ada.get('precision', 0.0):.4f}", f"{m_hyb.get('precision', 0.0):.4f}"),
+        ("Recall (Overall)", f"{m_dis.get('recall', 0.0):.4f}", f"{m_fix.get('recall', 0.0):.4f}", f"{m_ada.get('recall', 0.0):.4f}", f"{m_hyb.get('recall', 0.0):.4f}"),
+        ("Recall: A1 Low-Risk Paraphrases", f"{m_dis.get('recall_low_risk_a1', 0.0):.4f}", f"{m_fix.get('recall_low_risk_a1', 0.0):.4f}", f"{m_ada.get('recall_low_risk_a1', 0.0):.4f}", f"{m_hyb.get('recall_low_risk_a1', 0.0):.4f}"),
+        ("Recall: A2 High-Risk Paraphrases", f"{m_dis.get('recall_high_risk_a2', 0.0):.4f}", f"{m_fix.get('recall_high_risk_a2', 0.0):.4f}", f"{m_ada.get('recall_high_risk_a2', 0.0):.4f}", f"{m_hyb.get('recall_high_risk_a2', 0.0):.4f}"),
+        ("False Positive Rate (FPR)", f"{m_dis.get('fpr', 0.0):.4f}", f"{m_fix.get('fpr', 0.0):.4f}", f"{m_ada.get('fpr', 0.0):.4f}", f"{m_hyb.get('fpr', 0.0):.4f}"),
+        ("False Negative Rate (FNR)", f"{m_dis.get('fnr', 0.0):.4f}", f"{m_fix.get('fnr', 0.0):.4f}", f"{m_ada.get('fnr', 0.0):.4f}", f"{m_hyb.get('fnr', 0.0):.4f}"),
+        ("Overall Cache Hit Rate", f"{m_dis.get('overall_hit_rate', 0.0):.4f}", f"{m_fix.get('overall_hit_rate', 0.0):.4f}", f"{m_ada.get('overall_hit_rate', 0.0):.4f}", f"{m_hyb.get('overall_hit_rate', 0.0):.4f}"),
+        ("Average Latency (ms)", f"{m_dis.get('avg_latency_ms', 0.0)}ms", f"{m_fix.get('avg_latency_ms', 0.0)}ms", f"{m_ada.get('avg_latency_ms', 0.0)}ms", f"{m_hyb.get('avg_latency_ms', 0.0)}ms"),
+        ("Median Latency (ms)", f"{m_dis.get('median_latency_ms', 0.0)}ms", f"{m_fix.get('median_latency_ms', 0.0)}ms", f"{m_ada.get('median_latency_ms', 0.0)}ms", f"{m_hyb.get('median_latency_ms', 0.0)}ms")
     ]
 
-    for label, dis_val, fix_val, ada_val in metrics_rows:
-        md_lines.append(f"| **{label}** | {dis_val} | {fix_val} | {ada_val} |")
+    for label, dis_val, fix_val, ada_val, hyb_val in metrics_rows:
+        md_lines.append(f"| **{label}** | {dis_val} | {fix_val} | {ada_val} | {hyb_val} |")
 
     with open(SUMMARY_PATH, "w", encoding="utf-8") as f:
         f.write("\n".join(md_lines) + "\n")

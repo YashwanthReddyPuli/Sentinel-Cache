@@ -197,12 +197,12 @@ async def clear_cache():
 )
 async def chat_completions(
     request: ChatRequest,
-    cache_mode: str = Query("adaptive", description="Cache evaluation mode: 'adaptive', 'fixed', or 'disabled'")
+    cache_mode: str = Query("hybrid", description="Cache evaluation mode: 'hybrid', 'adaptive', 'fixed', or 'disabled'")
 ):
     """
     Handles prompt completion requests:
     1. Classifies prompt risk score & mapped adaptive similarity threshold.
-    2. Performs vector cache lookup in Qdrant (supports cache_mode='fixed'|'adaptive'|'disabled').
+    2. Performs vector cache lookup in Qdrant (supports cache_mode='hybrid'|'adaptive'|'fixed'|'disabled').
     3. If cache miss, routes request dynamically to fast_cheap or capable_expensive LLM provider.
     4. Executes fallback resilience if primary provider API call fails.
     5. Calculates estimated USD cost and returns complete response telemetry.
@@ -211,8 +211,8 @@ async def chat_completions(
 
     # Normalize cache_mode
     mode = cache_mode.lower().strip()
-    if mode not in ("adaptive", "fixed", "disabled"):
-        mode = "adaptive"
+    if mode not in ("hybrid", "adaptive", "fixed", "disabled"):
+        mode = "hybrid"
 
     # ----------------------------------------------------
     # Step 1: Prompt Risk & Intent Classification
@@ -246,10 +246,22 @@ async def chat_completions(
     if mode != "disabled" and embedder and cache_client:
         try:
             prompt_embedding = embedder.embed(request.prompt)
+            enable_guards = (mode == "hybrid")
+
             if mode == "fixed":
-                cached_hit = cache_client.lookup(prompt_embedding, threshold=FIXED_THRESHOLD)
+                cached_hit = cache_client.lookup(
+                    prompt_embedding,
+                    current_prompt=request.prompt,
+                    threshold=FIXED_THRESHOLD,
+                    enable_guards=enable_guards
+                )
             else:
-                cached_hit = cache_client.lookup(prompt_embedding, risk_score=risk_score)
+                cached_hit = cache_client.lookup(
+                    prompt_embedding,
+                    current_prompt=request.prompt,
+                    risk_score=risk_score,
+                    enable_guards=enable_guards
+                )
         except Exception as exc:
             logger.warning(f"Cache lookup failed: {exc}. Proceeding to LLM provider.")
 

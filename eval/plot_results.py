@@ -29,38 +29,42 @@ def load_summary():
 def plot_precision_recall_comparison(summary):
     fixed = summary["fixed"]
     adaptive = summary["adaptive"]
+    hybrid = summary["hybrid"]
 
     metrics = ["Precision", "Recall", "False Positive Rate", "False Negative Rate"]
     fixed_vals = [fixed["precision"], fixed["recall"], fixed["fpr"], fixed["fnr"]]
     adaptive_vals = [adaptive["precision"], adaptive["recall"], adaptive["fpr"], adaptive["fnr"]]
+    hybrid_vals = [hybrid["precision"], hybrid["recall"], hybrid["fpr"], hybrid["fnr"]]
 
     x = np.arange(len(metrics))
-    width = 0.35
+    width = 0.25
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(11, 6))
 
-    rects1 = ax.bar(x - width/2, fixed_vals, width, label="Fixed Threshold (0.92)", color="#e74c3c")
-    rects2 = ax.bar(x + width/2, adaptive_vals, width, label="Adaptive Threshold (0.88-0.99)", color="#2ecc71")
+    rects1 = ax.bar(x - width, fixed_vals, width, label="Fixed Threshold (0.92)", color="#e74c3c")
+    rects2 = ax.bar(x, adaptive_vals, width, label="Adaptive Threshold (0.88-0.99)", color="#f39c12")
+    rects3 = ax.bar(x + width, hybrid_vals, width, label="Hybrid Mode (Guards)", color="#2ecc71")
 
     ax.set_ylabel("Score / Rate", fontsize=12, fontweight="bold")
-    ax.set_title("SentinelCache Evaluation: Fixed vs Adaptive Threshold Performance", fontsize=14, fontweight="bold", pad=15)
+    ax.set_title("SentinelCache Evaluation: Fixed vs Adaptive vs Hybrid Guard Mode", fontsize=14, fontweight="bold", pad=15)
     ax.set_xticks(x)
     ax.set_xticklabels(metrics, fontsize=11, fontweight="bold")
     ax.set_ylim(0, 1.15)
-    ax.legend(fontsize=11)
+    ax.legend(fontsize=10)
     ax.grid(axis="y", linestyle="--", alpha=0.5)
 
     def autolabel(rects):
         for rect in rects:
             height = rect.get_height()
-            ax.annotate(f"{height:.2%}",
+            ax.annotate(f"{height:.1%}",
                         xy=(rect.get_x() + rect.get_width() / 2, height),
                         xytext=(0, 3),
                         textcoords="offset points",
-                        ha="center", va="bottom", fontsize=10, fontweight="bold")
+                        ha="center", va="bottom", fontsize=9, fontweight="bold")
 
     autolabel(rects1)
     autolabel(rects2)
+    autolabel(rects3)
 
     fig.tight_layout()
     plt.savefig(FIG1_PATH, dpi=300)
@@ -69,16 +73,16 @@ def plot_precision_recall_comparison(summary):
 
 
 def plot_recall_by_risk_tier(summary):
-    adaptive = summary["adaptive"]
+    hybrid = summary["hybrid"]
     
     tiers = ["A1: Low-Risk Paraphrases\n(Risk ~0.10-0.20)", "A2: High-Risk Paraphrases\n(Risk ~0.70+)"]
-    recalls = [adaptive["recall_low_risk_a1"], adaptive["recall_high_risk_a2"]]
+    recalls = [hybrid["recall_low_risk_a1"], hybrid["recall_high_risk_a2"]]
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    bars = ax.bar(tiers, recalls, color=["#3498db", "#f39c12"], width=0.45)
+    bars = ax.bar(tiers, recalls, color=["#3498db", "#e74c3c"], width=0.45)
 
     ax.set_ylabel("Recall Rate", fontsize=12, fontweight="bold")
-    ax.set_title("Adaptive Configuration: Recall Breakdown by Prompt Risk Tier", fontsize=13, fontweight="bold", pad=15)
+    ax.set_title("Hybrid Mode: Recall Breakdown by Prompt Risk Tier", fontsize=13, fontweight="bold", pad=15)
     ax.set_ylim(0, 1.15)
     ax.grid(axis="y", linestyle="--", alpha=0.5)
 
@@ -97,15 +101,16 @@ def plot_recall_by_risk_tier(summary):
 
 
 def plot_latency_comparison(summary):
-    modes = ["Disabled\n(Pure LLM)", "Fixed Threshold\n(0.92)", "Adaptive Threshold\n(0.88-0.99)"]
+    modes = ["Disabled\n(Pure LLM)", "Fixed Threshold\n(0.92)", "Adaptive Threshold\n(0.88-0.99)", "Hybrid Mode\n(Guards)"]
     latencies = [
         summary["disabled"]["avg_latency_ms"],
         summary["fixed"]["avg_latency_ms"],
-        summary["adaptive"]["avg_latency_ms"]
+        summary["adaptive"]["avg_latency_ms"],
+        summary["hybrid"]["avg_latency_ms"]
     ]
 
-    fig, ax = plt.subplots(figsize=(8, 5))
-    bars = ax.bar(modes, latencies, color=["#95a5a6", "#e74c3c", "#2ecc71"], width=0.45)
+    fig, ax = plt.subplots(figsize=(9, 5))
+    bars = ax.bar(modes, latencies, color=["#95a5a6", "#e74c3c", "#f39c12", "#2ecc71"], width=0.45)
 
     ax.set_ylabel("Average Latency (ms)", fontsize=12, fontweight="bold")
     ax.set_title("Average Client Latency Comparison Across Gateway Modes", fontsize=13, fontweight="bold", pad=15)
@@ -117,7 +122,7 @@ def plot_latency_comparison(summary):
                     xy=(bar.get_x() + bar.get_width() / 2, height),
                     xytext=(0, 3),
                     textcoords="offset points",
-                    ha="center", va="bottom", fontsize=11, fontweight="bold")
+                    ha="center", va="bottom", fontsize=10, fontweight="bold")
 
     fig.tight_layout()
     plt.savefig(FIG3_PATH, dpi=300)

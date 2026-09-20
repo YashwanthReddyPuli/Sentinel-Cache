@@ -68,11 +68,20 @@ class CacheClient:
             raise
 
     def clear_collection(self) -> None:
-        """Deletes and recreates the prompt_cache collection to clear all entries."""
+        """Deletes all points in prompt_cache collection or recreates it cleanly."""
         try:
             if self.client.collection_exists(COLLECTION_NAME):
-                self.client.delete_collection(COLLECTION_NAME)
-            self.create_collection()
+                # Delete all points via scroll/delete or recreate
+                try:
+                    self.client.delete(
+                        collection_name=COLLECTION_NAME,
+                        points_selector=PointStruct
+                    )
+                except Exception:
+                    self.client.delete_collection(COLLECTION_NAME)
+                    self.create_collection()
+            else:
+                self.create_collection()
             logger.info(f"Collection '{COLLECTION_NAME}' reset successfully.")
         except Exception as exc:
             logger.error(f"Failed to reset collection '{COLLECTION_NAME}': {exc}")
@@ -81,16 +90,21 @@ class CacheClient:
     def lookup(
         self,
         embedding: list[float],
+        current_prompt: str = None,
         risk_score: float = None,
-        threshold: float = None
+        threshold: float = None,
+        enable_guards: bool = True
     ) -> dict | None:
         """
-        Searches the collection for the single nearest neighbor vector using adaptive thresholding.
+        Searches the collection for the single nearest neighbor vector using adaptive thresholding
+        and optional hybrid guard verification (NegationGuard & EntityGuard).
 
         :param embedding: 384-dimensional query vector
+        :param current_prompt: Current user prompt string
         :param risk_score: Optional risk score in [0.0, 1.0] used to map adaptive threshold
         :param threshold: Optional fixed similarity threshold override
-        :return: Payload dictionary if similarity >= effective_threshold, else None
+        :param enable_guards: Whether to enforce NegationGuard and EntityGuard verification
+        :return: Payload dictionary if similarity >= effective_threshold and guards pass, else None
         """
         if risk_score is not None:
             effective_threshold = map_risk_to_threshold(risk_score)
@@ -114,6 +128,26 @@ class CacheClient:
 
             if similarity_score >= effective_threshold:
                 payload = top_match.payload or {}
+                cached_prompt = payload.get("prompt", "")
+
+                # Run Guard Verification Layer if enabled and current_prompt provided
+                if enable_guards and current_prompt and cached_prompt:
+                    from routing.guards import detect_negation_mismatch, detect_entity_mismatch
+
+                    if detect_negation_mismatch(current_prompt, cached_prompt):
+                        logger.warning(
+                            f"Cache HIT blocked by NegationGuard! Similarity {similarity_score:.4f} >= {effective_threshold:.4f}, "
+                            f"but asymmetric negation detected between '{current_prompt}' and '{cached_prompt}'."
+                        )
+                        return None
+
+                    if detect_entity_mismatch(current_prompt, cached_prompt):
+                        logger.warning(
+                            f"Cache HIT blocked by EntityGuard! Similarity {similarity_score:.4f} >= {effective_threshold:.4f}, "
+                            f"but entity mismatch detected between '{current_prompt}' and '{cached_prompt}'."
+                        )
+                        return None
+
                 payload["similarity_score"] = similarity_score
                 payload["effective_threshold"] = effective_threshold
                 logger.info(f"Cache HIT! Similarity score {similarity_score:.4f} >= threshold {effective_threshold:.4f}")
