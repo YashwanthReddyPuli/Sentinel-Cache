@@ -17,34 +17,20 @@
 
 By unifying **intent risk classification**, **adaptive vector distance thresholding**, **deterministic hybrid safety guards**, and **tiered multi-provider model routing**, SentinelCache safely accelerates recurring prompt workloads while guaranteeing **0% safety violations (0.0% False Positive Rate)** on sensitive operational actions.
 
-```mermaid
-graph TD
-    A[Client Request] -->|POST /v1/chat/completions| B[SentinelCache Gateway]
-    B --> C[Intent Risk Classifier]
-    C -->|Risk Score 0.0 - 1.0| D[Adaptive Threshold Calculator]
-    
-    B --> E[SentenceTransformer Embedder]
-    E -->|384-dim Vector| F[Qdrant Nearest-Neighbor Search]
-    D -->|effective_threshold| F
-    
-    F -->|Similarity < Threshold| G[Cache MISS: Dynamic Provider Router]
-    F -->|Similarity >= Threshold| H{Hybrid Safety Guard Verification}
-    
-    H -->|Negation Check| I[NegationGuard]
-    H -->|Entity Check| J[EntityGuard]
-    
-    I -->|Asymmetric Negation| K[Intercept: Force Cache MISS]
-    J -->|Entity Identifier Mismatch| K
-    K --> G
-    
-    I -->|Pass| L{Guards Verified?}
-    J -->|Pass| L
-    L -->|Yes| M[Cache HIT: Return Cached Response]
-    
-    G --> N[LLM Provider Dispatch & Fallback]
-    N -->|Store Entry| O[Upsert to Qdrant]
-    O --> P[Unified Telemetry Response Payload]
-    M --> P
+```
++-----------------------------------------------------------------------------------+
+|                                  SentinelCache                                    |
+|                                                                                   |
+|   [Prompt] ---> (Risk Classifier) ---> (Adaptive Vector Lookup in Qdrant)         |
+|                       |                              |                            |
+|                       v                              v                            |
+|               [Tiered Router] <--- (Hybrid Safety Guards: Negation & Entity)     |
+|                       |                              |                            |
+|                       +--------------+---------------+                            |
+|                                      |                                            |
+|                                      v                                            |
+|                    { Cached Hit (12ms) | LLM Provider }                       |
++-----------------------------------------------------------------------------------+
 ```
 
 ---
@@ -54,10 +40,12 @@ graph TD
 ### 🛡️ 1. Intent-Aware Adaptive Thresholding
 Static similarity thresholds fail on operational queries where minor wording changes dramatically alter prompt intent. SentinelCache dynamically computes vector similarity cutoffs based on input risk classification:
 
-$$\text{effective\_threshold} = 0.88 + (0.11 \times \text{risk\_score})$$
+```text
+effective_threshold = 0.88 + (0.11 * risk_score)
+```
 
-- **High-Risk Operational Actions** (`cancel`, `delete`, `refund`, `revoke`, `transfer`): Enforces strict thresholds ($\sim 0.957 - 0.990$).
-- **Low-Risk Factual & Terse Queries** (`what`, `how`, `explain`, `capital of India`): Applies permissive thresholds ($\sim 0.880 - 0.902$).
+- **High-Risk Operational Actions** (`cancel`, `delete`, `refund`, `revoke`, `transfer`): Enforces strict thresholds (`0.957 - 0.990`).
+- **Low-Risk Factual & Terse Queries** (`what`, `how`, `explain`, `capital of India`): Applies permissive thresholds (`0.880 - 0.902`).
 
 ### 🔍 2. Production Hybrid Safety Guard Layer
 Dense embedding similarity models (`all-MiniLM-L6-v2`) exhibit a mathematical limitation: single-word negation flips (*"Revoke API keys"* vs *"Do NOT revoke API keys"*) and entity swaps (*"Transfer $500 to account 987654321"* vs *"123456789"*) yield high cosine similarity scores ($0.93 - 0.98+$). 
