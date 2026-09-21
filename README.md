@@ -17,20 +17,14 @@
 
 By unifying **intent risk classification**, **adaptive vector distance thresholding**, **deterministic hybrid safety guards**, and **tiered multi-provider model routing**, SentinelCache safely accelerates recurring prompt workloads while guaranteeing **0% safety violations (0.0% False Positive Rate)** on sensitive operational actions.
 
-```
-+-----------------------------------------------------------------------------------+
-|                                  SentinelCache                                    |
-|                                                                                   |
-|   [Prompt] ---> (Risk Classifier) ---> (Adaptive Vector Lookup in Qdrant)         |
-|                       |                              |                            |
-|                       v                              v                            |
-|               [Tiered Router] <--- (Hybrid Safety Guards: Negation & Entity)     |
-|                       |                              |                            |
-|                       +--------------+---------------+                            |
-|                                      |                                            |
-|                                      v                                            |
-|                    { Cached Hit (12ms) | LLM Provider }                       |
-+-----------------------------------------------------------------------------------+
+```mermaid
+graph TD
+    Prompt[User Prompt] --> RiskClass[Risk Classifier]
+    RiskClass --> QdrantLookup[Adaptive Vector Lookup in Qdrant]
+    QdrantLookup --> Guards[Hybrid Safety Guards: Negation & Entity]
+    Guards --> Router[Tiered Router]
+    Router -->|Cache HIT| CachedHit[Cached Hit ~12ms]
+    Router -->|Cache MISS / Guard Block| LLMProvider[LLM Provider Dispatch]
 ```
 
 ---
