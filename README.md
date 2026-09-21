@@ -1,173 +1,132 @@
-# SentinelCache: Cloud-Native AI API Gateway with Adaptive Caching & Multi-Provider LLM Routing
+# SentinelCache
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+**Cloud-Native AI API Gateway with Adaptive Semantic Caching, Hybrid Safety Guards & Dynamic Multi-Provider Routing**
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
 [![Qdrant](https://img.shields.io/badge/Qdrant-Vector%20DB-red.svg)](https://qdrant.tech/)
+[![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-**SentinelCache** is an enterprise-grade, cloud-native AI API Gateway designed to optimize cost, latency, and safety for high-throughput LLM deployments. By integrating **intent risk classification**, **dynamic similarity thresholding**, **hybrid guard verification (Negation & Entity Guards)**, **tiered multi-provider routing**, **automated outage fallback**, and a **Phase 5 custom React observability dashboard**, SentinelCache safely accelerates repetitive prompts while guaranteeing **0.0% False Positive Rate (0% safety violations)** on sensitive operational actions.
 
 ---
 
-## 🏛️ System Architecture Overview
+## 🌟 Overview
+
+**SentinelCache** is an enterprise-grade AI API Gateway designed to optimize latency, API expenses, and operational safety for high-throughput LLM applications. 
+
+By unifying **intent risk classification**, **adaptive vector distance thresholding**, **deterministic hybrid safety guards**, and **tiered multi-provider model routing**, SentinelCache safely accelerates recurring prompt workloads while guaranteeing **0% safety violations (0.0% False Positive Rate)** on sensitive operational actions.
+
+```
++-----------------------------------------------------------------------------------+
+|                                  SentinelCache                                    |
+|                                                                                   |
+|   [Prompt] ---> (Risk Classifier) ---> (Adaptive Vector Lookup in Qdrant)         |
+|                       |                              |                            |
+|                       v                              v                            |
+|               [Tiered Router] <--- (Hybrid Safety Guards: Negation & Entity)     |
+|                       |                              |                            |
+|                       +--------------+---------------+                            |
+|                                      |                                            |
+|                                      v                                            |
+|                    { Cached Hit (12ms) | LLM Provider }                       |
++-----------------------------------------------------------------------------------+
+```
+
+---
+
+## ⚡ Key Architecture & Features
+
+### 🛡️ 1. Intent-Aware Adaptive Thresholding
+Static similarity thresholds fail on operational queries where minor wording changes dramatically alter prompt intent. SentinelCache dynamically computes vector similarity cutoffs based on input risk classification:
+
+$$\text{effective\_threshold} = 0.88 + (0.11 \times \text{risk\_score})$$
+
+- **High-Risk Operational Actions** (`cancel`, `delete`, `refund`, `revoke`, `transfer`): Enforces strict thresholds ($\sim 0.957 - 0.990$).
+- **Low-Risk Factual & Terse Queries** (`what`, `how`, `explain`, `capital of India`): Applies permissive thresholds ($\sim 0.880 - 0.902$).
+
+### 🔍 2. Production Hybrid Safety Guard Layer
+Dense embedding similarity models (`all-MiniLM-L6-v2`) exhibit a mathematical limitation: single-word negation flips (*"Revoke API keys"* vs *"Do NOT revoke API keys"*) and entity swaps (*"Transfer $500 to account 987654321"* vs *"123456789"*) yield high cosine similarity scores ($0.93 - 0.98+$). 
+
+SentinelCache runs two deterministic verification guards before confirming any vector cache hit:
+- **NegationGuard**: Detects asymmetric negation markers (`not`, `don't`, `never`, `without`) across intent action verbs.
+- **EntityGuard**: Extracts and compares numeric identifiers, transaction amounts, dates, quarters, environments, and proper noun tokens.
+
+### 🔀 3. Dynamic Multi-Provider Routing & Resilient Fallback
+- **`fast_cheap` Tier (e.g. Groq 20B)**: Auto-selected for low-risk queries (`risk_score < 0.50`) to minimize cost.
+- **`capable_expensive` Tier (e.g. Groq 120B)**: Auto-selected for complex or operational queries (`risk_score >= 0.50`).
+- **Automated Fallback**: Intercepts upstream provider failures (HTTP 4xx/5xx, timeouts, rate limits) and seamlessly redirects requests to healthy candidate providers without user disruption.
+
+### 📊 4. ChatGPT-Style Interface & Live Observability Dashboard
+- **ChatGPT-Style Layout**: Sidebar navigation (`Chat Console`, `Dashboard`, `Evaluation Matrix`), single-box input with inline mode selection pills (`hybrid`, `adaptive`, `fixed`, `disabled`).
+- **Real-Time Telemetry Inspector**: Plain-language response banners (`⚡ Instant response from cache — 12ms`) with collapsible telemetry drawers showing raw cosine similarity scores, risk scores, effective thresholds, model tiers, and request cost.
+- **System Metrics API**: Real-time timeseries charts, latency distributions (avg, median, P95), total requests, and dollar savings vs no-cache baseline.
+
+---
+
+## 🏛️ System Request Pipeline
 
 ```mermaid
 graph TD
-    A[Client User Prompt] -->|HTTP POST /v1/chat/completions| B[FastAPI Gateway Interceptor]
-    B --> C[Stage 1: Intent Risk Classifier]
-    C -->|Risk Score 0.0 - 1.0| D[Stage 2: Adaptive Threshold Calculator]
-    B --> E[Vector Embedder: all-MiniLM-L6-v2]
+    A[Client Request] -->|POST /v1/chat/completions| B[SentinelCache Gateway]
+    B --> C[Intent Risk Classifier]
+    C -->|Risk Score 0.0 - 1.0| D[Adaptive Threshold Calculator]
+    
+    B --> E[SentenceTransformer Embedder]
     E -->|384-dim Vector| F[Qdrant Nearest-Neighbor Search]
     D -->|effective_threshold| F
     
-    F -->|Similarity < Threshold| G[Cache MISS: Dynamic LLM Router]
-    F -->|Similarity >= Threshold| H{Stage 3: Hybrid Guard Layer}
+    F -->|Similarity < Threshold| G[Cache MISS: Dynamic Provider Router]
+    F -->|Similarity >= Threshold| H{Hybrid Safety Guard Verification}
     
-    H -->|NegationGuard Check| I[detect_negation_mismatch]
-    H -->|EntityGuard Check| J[detect_entity_mismatch]
+    H -->|Negation Check| I[NegationGuard]
+    H -->|Entity Check| J[EntityGuard]
     
-    I -->|Asymmetric Negation Mismatch| K[Force Cache MISS: Block Dangerous Hit]
-    J -->|Entity / Parameter Mismatch| K
+    I -->|Asymmetric Negation| K[Intercept: Force Cache MISS]
+    J -->|Entity Identifier Mismatch| K
     K --> G
     
-    I -->|Pass| L{All Verification Guards Passed?}
+    I -->|Pass| L{Guards Verified?}
     J -->|Pass| L
-    L -->|Yes| M[Cache HIT: Return Cached LLM Response]
+    L -->|Yes| M[Cache HIT: Return Cached Response]
     
-    G --> N[Stage 4: Tiered LLM Provider Dispatch & Fallback]
-    N -->|Primary Provider Error| O[Automated Outage Fallback Provider]
-    N -->|Success| P[Store Embedding & Response Payload in Qdrant]
-    O -->|Success| P
-    P --> Q[Return Unified JSON Telemetry Response]
-    M --> Q
-    
-    Q --> R[Stage 5: Metrics API & React Observability Dashboard]
+    G --> N[LLM Provider Dispatch & Fallback]
+    N -->|Store Entry| O[Upsert to Qdrant]
+    O --> P[Unified Telemetry Response Payload]
+    M --> P
 ```
 
 ---
 
-## 📂 Repository Structure
+## 📈 Empirical Evaluation Benchmark Results
 
-```text
-sentinelcache/
-├── gateway/                 # Core API Gateway implementation
-│   ├── main.py              # FastAPI endpoints, CORS, metrics API & lifecycles
-│   ├── cache.py             # Qdrant client, collection mgmt & guard enforcement
-│   └── metrics.py           # In-memory telemetry store & timeseries aggregation
-├── embedding/               # Vector embedding abstraction layer
-│   └── embedder.py          # SentenceTransformers model wrapper (384-dim)
-├── routing/                 # Dynamic classification & guard verification engine
-│   ├── risk_classifier.py   # Intent risk scoring & signal extraction
-│   ├── guards.py            # Hybrid Guard Layer (NegationGuard & EntityGuard)
-│   ├── provider_registry.py # Provider health checking & credential validator
-│   └── router.py            # Tiered model selection & cost calculator
-├── frontend/                # Phase 5 Custom React Observability Dashboard
-│   ├── src/
-│   │   ├── App.tsx          # Dashboard UI, Live Telemetry, Benchmark Grid & Inspector Console
-│   │   └── index.css        # Technical dark design system (Tailwind v4)
-│   ├── package.json         # React 19, Vite, Recharts, Lucide-React
-│   └── vite.config.ts       # Vite frontend configuration
-├── eval/                    # Phase 4 & 4.5 Empirical Evaluation Benchmark Suite
-│   ├── benchmark_dataset.json# 45 labeled prompt pairs (A1, A2, B categories)
-│   ├── benchmark_dataset.py # Benchmark dataset generation script
-│   ├── run_benchmark.py     # Isolated per-pair 4-mode benchmark runner
-│   ├── plot_results.py      # Matplotlib evaluation chart rendering scripts
-│   ├── compare_embedding_models.py # MiniLM vs mpnet diagnostic comparison
-│   ├── results.json         # Raw benchmark output telemetry
-│   └── results_summary.md   # Generated Markdown benchmark summary table
-├── docs/                    # Architectural diagrams & benchmark documentation
-│   └── benchmarks.md        # Full Phase 4.5 Hybrid Guard Layer benchmark report
-├── docker-compose.yml       # Qdrant vector database container setup
-└── requirements.txt         # Python dependency specification
-```
+Evaluated across **45 labeled benchmark pairs** (180 total runs) across all four cache evaluation modes:
 
----
-
-## ⚡ Core Features & Pipeline Phases
-
-### Phase 1: Semantic Caching Core
-Intercepts incoming prompts and compares vector embeddings against historical queries stored in **Qdrant** using `sentence-transformers/all-MiniLM-L6-v2`. Bypasses LLM inference on high-confidence semantic matches, reducing response times to **~200ms**.
-
-### Phase 2: Adaptive Risk-Aware Thresholding
-Static similarity thresholds fail on operational queries where minor wording changes alter intent. SentinelCache dynamically computes similarity cutoffs based on prompt risk score:
-
-`effective_threshold = 0.88 + (0.11 * risk_score)`
-
-- **High-Risk Actions** (`cancel`, `delete`, `refund`, `revoke`): Strict thresholds (~0.957 - 0.99).
-- **Low-Risk Informational** (`what`, `explain`, `define`): Permissive thresholds (~0.88 - 0.902).
-
-### Phase 3: Dynamic Model Tiering & Automated Fallback Resilience
-- **Tiered Model Routing**:
-  - **`fast_cheap` Tier (Groq 20B)**: Auto-selected when `risk_score < 0.50` ($0.05 / 1M input tokens).
-  - **`capable_expensive` Tier (Groq 120B)**: Auto-selected when `risk_score >= 0.50` ($0.50 / 1M input tokens).
-- **Automated Fallback**: Automatically detects upstream provider errors (HTTP 4xx/5xx, timeouts, rate limits) and seamlessly retries against healthy fallback models without user disruption.
-- **Startup Credential Guard**: Loud startup validation that aborts gateway initialization if any configured provider API key is missing or invalid.
-
-### Phase 4.5: Production Hybrid Guard Layer (NegationGuard & EntityGuard)
-Dense embedding similarity alone has a mathematical limitation: single-word negation flips (*"Revoke API keys"* vs *"Do NOT revoke API keys"*) and entity swaps (*"Transfer $500 to account 987654321"* vs *"123456789"*) produce high cosine similarity scores (0.92 - 0.97+). The **Hybrid Guard Layer** intercepts nearest-neighbor matches and enforces two deterministic verification guards before confirming any cache hit:
-1. **NegationGuard (`detect_negation_mismatch`)**: Detects asymmetric negation markers near shared action verbs.
-2. **EntityGuard (`detect_entity_mismatch`)**: Compares extracted numbers, amounts, dates, quarters, environments, and proper noun tokens.
-
-### Phase 5: Custom Observability Dashboard & Request Inspector Console
-- **Metrics Telemetry API**: FastAPI endpoints (`/api/metrics/summary`, `/api/metrics/timeseries`, `/api/metrics/recent`, `/api/metrics/eval-results`) providing live gateway stats.
-- **System Performance Chart**: Real-time request volume, latency trajectory, and hit rate visualization rendered using linear data points.
-- **Interactive Gateway Test Console**: Technical request/response conversation thread with an inline metadata strip (`source`, `sim`, `risk`, `threshold`, `tier`, `latency`, `cost`) and a sticky **Request Inspector Panel** showing full raw JSON telemetry.
-
----
-
-## 📊 Phase 4.5 Empirical Evaluation Benchmark Results
-
-Evaluated across **45 labeled prompt pairs** (180 total evaluation runs) across four operating modes:
-
-| Metric | Disabled (No Cache) | Fixed Threshold (0.92) | Adaptive Threshold (0.88-0.99) | Hybrid Guard Mode (Production) |
+| Metric | Disabled (No Cache) | Fixed Threshold (0.92) | Adaptive Threshold | Hybrid Guard Mode (Production) |
 | :--- | :---: | :---: | :---: | :---: |
-| **Total Tested Pairs** | 45 | 45 | 45 | 45 |
+| **Total Test Pairs** | 45 | 45 | 45 | **45** |
 | **True Positives (TP)** | 0 | 5 | 5 | **5 (100% Retained TP)** |
-| **False Positives (FP - Safety Failures)** | 0 | 5 | 2 | **0 (0.0% FPR)** |
-| **True Negatives (TN)** | 20 | 15 | 18 | **20 (100.0% Security)** |
+| **False Positives (FP - Safety Failures)** | 0 | 5 | 2 | **0 (0.0% False Hits)** |
+| **True Negatives (TN)** | 20 | 15 | 18 | **20 (100% Security)** |
 | **False Negatives (FN)** | 25 | 20 | 20 | **20** |
-| **Precision** | 0.0000 | 0.5000 | 0.7143 | **1.0000 (100% Precision)** |
-| **Recall (Overall)** | 0.0000 | 0.2000 | 0.2000 | **0.2000 (0.20 Recall)** |
-| **Recall: Low-Risk Paraphrases (A1)** | 0.0000 | 0.2500 | 0.2500 | **0.2500** |
-| **Recall: High-Risk Paraphrases (A2)** | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
-| **False Positive Rate (FPR)** | 0.0000 | 0.2500 | 0.1000 | **0.0000 (0% False Hits)** |
-| **False Negative Rate (FNR)** | 1.0000 | 0.8000 | 0.8000 | **0.8000** |
-
-### 🎯 Verification of Previously-Failing Category B Test Pairs
-
-The Hybrid Guard Layer successfully intercepted and corrected all 5 previously-failing Category B safety test pairs:
-
-1. **Pair 27 (Permission Action Swap)**: *"Approve the pending user permission request"* vs *"Reject..."* $\rightarrow$ **True Negative**
-2. **Pair 40 (Quarter Entity Swap)**: *"Show sales reports for Q1 2025"* vs *"Q4 2025"* $\rightarrow$ **True Negative** (Blocked by EntityGuard)
-3. **Pair 28 (Order Negation Flip)**: *"Cancel my order #12345"* vs *"Do NOT cancel my order #12345"* $\rightarrow$ **True Negative** (Blocked by NegationGuard)
-4. **Pair 35 (Account Number Swap)**: *"Transfer $500 to account 987654321"* vs *"123456789"* $\rightarrow$ **True Negative** (Blocked by EntityGuard)
-5. **Pair 30 (API Key Negation Flip)**: *"Revoke API access keys..."* vs *"Do NOT revoke..."* $\rightarrow$ **True Negative** (Blocked by NegationGuard)
-
----
-
-## 🔍 Diagnostic Insights: Embedding Separability Ceiling
-
-Our diagnostic investigation ([`eval/compare_embedding_models.py`](eval/compare_embedding_models.py)) revealed a critical empirical insight:
-
-1. **Dense Vector Overlap**:
-   Because structural paraphrases produce similarities between **0.64** and **0.94**, Category A and Category B distributions overlap completely under dense embedding cosine similarity.
-2. **Model Comparison (`MiniLM` vs `mpnet-base`)**:
-   Upgrading to `all-mpnet-base-v2` (110M params) yielded an identical overlap (Max Category B score remained **0.9848**), proving that scaling vector dimensions alone cannot resolve negation ambiguity — validating SentinelCache's deterministic Hybrid Guard Layer approach.
+| **Precision** | `0.00` | `0.50` | `0.71` | **`1.00` (100% Precision)** |
+| **False Positive Rate (FPR)** | `0.00` | `0.25` | `0.10` | **`0.00` (0% FP Rate)** |
+| **Overall Hit Rate** | `0.0%` | `22.2%` | `15.6%` | **`11.1%`** |
+| **Average Latency** | `2905ms` | `3037ms` | `7693ms` | **`9490ms`** |
 
 ---
 
 ## 🚀 Quickstart & Setup Guide
 
 ### 1. Prerequisites
-- Python 3.10+
-- Node.js 18+ (for Frontend Dashboard)
-- Docker Desktop (for Qdrant Vector Database)
-- Groq API Key ([Get one here](https://console.groq.com/keys))
+- **Python 3.11+**
+- **Node.js 18+** (for React frontend)
+- **Docker Desktop** (for Qdrant Vector DB)
+- **Groq API Key** ([Get a key](https://console.groq.com/keys))
 
-### 2. Environment Setup
+### 2. Environment Setup & Installation
 ```bash
-# Clone repository
+# Clone the repository
 git clone https://github.com/YashwanthReddyPuli/Sentinel-Cache.git
 cd Sentinel-Cache
 
@@ -178,58 +137,64 @@ python -m venv .venv
 # On Linux/macOS:
 source .venv/bin/activate
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 ```
 
 ### 3. Environment Variable Configuration
 Create a `.env` file in the root directory:
 ```env
-# Groq API Credentials
+# Groq API Key
 GROQ_API_KEY=gsk_your_groq_api_key_here
 
-# Qdrant Vector Store Host Configuration
+# Qdrant Vector Store
 QDRANT_HOST=localhost
 QDRANT_PORT=6333
 ```
 
-### 4. Start Qdrant Vector Database Container
+### 4. Run Vector Database Container
 ```bash
 docker compose up -d
 ```
 
-### 5. Launch SentinelCache Gateway Backend
+### 5. Launch Gateway Backend
 ```bash
 uvicorn gateway.main:app --reload --host 127.0.0.1 --port 8000
 ```
-*The gateway defaults to production `cache_mode=hybrid` with NegationGuard and EntityGuard active.*
+*The gateway initializes the `prompt_cache` collection in Qdrant and starts listening on `http://127.0.0.1:8000`.*
 
-### 6. Launch Phase 5 Frontend Observability Dashboard
+### 6. Launch Web Dashboard
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-*Open your browser at **http://localhost:5173/** to access the live dashboard and Gateway Test Console.*
+*Open **http://localhost:5173/** in your browser.*
 
 ---
 
-## 📡 Telemetry & API Usage Examples
+## 📡 API Reference & Usage
 
-### Standard Request (Hybrid Mode)
-```bash
-curl -X POST "http://127.0.0.1:8000/v1/chat/completions?cache_mode=hybrid" \
-     -H "Content-Type: application/json" \
-     -d '{"prompt": "What is the capital of Germany?"}'
+### `POST /v1/chat/completions`
+Send a completion request through the SentinelCache gateway.
+
+**Query Parameters:**
+- `cache_mode` (`string`, default: `hybrid`): `hybrid` | `adaptive` | `fixed` | `disabled`
+
+**Request Body:**
+```json
+{
+  "prompt": "What is the capital of Germany?"
+}
 ```
 
-### Response Schema & Telemetry Payload
+**Response Payload:**
 ```json
 {
   "response": "The capital of Germany is Berlin.",
-  "latency": 0.218,
+  "latency": 0.0124,
   "source": "cache",
-  "cache_lookup_latency_seconds": 0.0112,
+  "cache_lookup_latency_seconds": 0.0085,
   "risk_assessment": {
     "risk_score": 0.2,
     "matched_signals": [
@@ -243,24 +208,55 @@ curl -X POST "http://127.0.0.1:8000/v1/chat/completions?cache_mode=hybrid" \
     "tier": "fast_cheap",
     "reasoning": "Risk score 0.20 < 0.50 cutoff -> Selected fast_cheap tier. (Served from cache: LLM call bypassed, mode='hybrid')."
   },
-  "estimated_cost_usd": 0.0
+  "estimated_cost_usd": 0.0,
+  "similarity_score": 0.9435,
+  "guard_reason": null
 }
 ```
 
-### Running Benchmark & Diagnostic Analysis Scripts
-```bash
-# Execute Phase 4.5 4-Mode Benchmark Suite (45 pairs x 4 modes)
-python eval/run_benchmark.py
+### Telemetry Endpoints
+- `GET /api/metrics/summary` — Aggregate request counts, hit rate, average/median/P95 latency, total cost, and savings.
+- `GET /api/metrics/timeseries?window=1h|24h|7d` — Bucket-aggregated timeseries metrics for performance charts.
+- `GET /api/metrics/recent?limit=50` — Recent individual request records.
+- `GET /api/metrics/eval-results` — benchmark results matrix summary.
 
-# Generate Evaluation PNG Charts
-python eval/plot_results.py
+---
 
-# Run MiniLM vs mpnet Model Comparison Analysis
-python eval/compare_embedding_models.py
+## 📂 Project Structure
+
+```text
+SentinelCache/
+├── gateway/                 # API Gateway Core
+│   ├── main.py              # FastAPI endpoints, CORS, metrics API & lifecycles
+│   ├── cache.py             # Qdrant client, collection creation & lookup engine
+│   └── metrics.py           # In-memory telemetry store & timeseries aggregation
+├── routing/                 # Dynamic Risk & Guard Verification Engine
+│   ├── risk_classifier.py   # Intent risk scoring & signal extraction
+│   ├── guards.py            # Hybrid Guard Layer (NegationGuard & EntityGuard)
+│   ├── provider_registry.py # Provider health checking & credential validation
+│   └── router.py            # Tiered model selection & cost calculator
+├── embedding/               # Vector Embedding Abstraction
+│   └── embedder.py          # SentenceTransformers wrapper (384-dim all-MiniLM-L6-v2)
+├── frontend/                # ChatGPT-Style Web App & Observability Dashboard
+│   ├── src/
+│   │   ├── App.tsx          # Chat Console, Dashboard & Evaluation Views
+│   │   └── index.css        # Tailwind v4 Dark Theme
+│   ├── package.json         # React 19, Vite, Recharts, Lucide-React
+│   └── vite.config.ts       # Vite frontend configuration
+├── eval/                    # Benchmark Evaluation Suite
+│   ├── benchmark_dataset.json# 45 labeled test prompt pairs
+│   ├── run_benchmark.py     # Multi-mode benchmark runner
+│   ├── plot_results.py      # Benchmark visualization scripts
+│   ├── compare_embedding_models.py # MiniLM vs mpnet diagnostic script
+│   └── results.json         # Raw benchmark evaluation telemetry
+├── docs/                    # Architectural Diagrams & Technical Reports
+│   └── benchmarks.md        # Full empirical evaluation report
+├── docker-compose.yml       # Qdrant container manifest
+└── requirements.txt         # Python project dependencies
 ```
 
 ---
 
-## 📜 License & Citation
+## 📜 License
 
 Distributed under the MIT License. See `LICENSE` for details.

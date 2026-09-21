@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
-  Activity, BarChart3, RefreshCw, Send, Zap, ShieldAlert,
-  Sparkles, ChevronDown, ChevronUp, MessageSquare, LayoutDashboard
+  BarChart3, RefreshCw, Send, Zap, ShieldAlert,
+  Sparkles, ChevronDown, ChevronUp, MessageSquare, LayoutDashboard,
+  Plus, PanelLeft, Shield, AlertTriangle
 } from 'lucide-react';
 import { 
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer 
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer 
 } from 'recharts';
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -78,6 +79,7 @@ interface ChatTurn {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'chat' | 'dashboard' | 'evaluation'>('chat');
   const [window, setWindow] = useState<'1h' | '24h' | '7d'>('1h');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   
   // Data state
   const [summary, setSummary] = useState<SummaryMetrics | null>(null);
@@ -102,7 +104,7 @@ export default function App() {
         fetch(`${API_BASE}/api/metrics/recent?limit=50`),
         fetch(`${API_BASE}/api/metrics/eval-results`)
       ]);
-      
+
       if (sumRes.ok) setSummary(await sumRes.json());
       if (timeRes.ok) setTimeseries(await timeRes.json());
       if (recRes.ok) setRecent(await recRes.json());
@@ -114,166 +116,441 @@ export default function App() {
 
   useEffect(() => {
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 3000);
+    const interval = setInterval(fetchTelemetry, 5000);
     return () => clearInterval(interval);
   }, [window]);
 
   useEffect(() => {
-    if (activeTab === 'chat' && chatTurns.length > 0) {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatTurns, activeTab]);
+  }, [chatTurns, submitting]);
 
-  // Send request via chat
-  const handleChatSubmit = async (e?: React.FormEvent, promptOverride?: string) => {
-    if (e) e.preventDefault();
-    const promptToSend = promptOverride || consoleInput;
+  const handleSendPrompt = async (overridePrompt?: string) => {
+    const promptToSend = overridePrompt || consoleInput;
     if (!promptToSend.trim() || submitting) return;
-    
+
     setSubmitting(true);
-    const timestamp = new Date().toLocaleTimeString();
-    
+    if (!overridePrompt) setConsoleInput('');
+
+    const turnId = Date.now().toString();
+
     try {
-      const res = await fetch(`${API_BASE}/v1/chat/completions?cache_mode=${consoleMode}`, {
+      const response = await fetch(`${API_BASE}/v1/chat/completions?cache_mode=${consoleMode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: promptToSend })
       });
-      const data = await res.json();
-      
-      const newTurn: ChatTurn = {
-        id: `turn-${Date.now()}`,
-        timestamp,
-        prompt: promptToSend,
-        mode: consoleMode,
-        responsePayload: data,
-        showDetails: false
-      };
 
-      setChatTurns(prev => [...prev, newTurn]);
-      if (!promptOverride) setConsoleInput('');
+      if (!response.ok) {
+        throw new Error(`Gateway returned status ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      setChatTurns(prev => [
+        ...prev,
+        {
+          id: turnId,
+          timestamp: new Date().toLocaleTimeString(),
+          prompt: promptToSend,
+          mode: consoleMode,
+          responsePayload: data,
+          showDetails: false
+        }
+      ]);
+
       fetchTelemetry();
-    } catch (err) {
-      console.error('Chat request failed:', err);
+    } catch (err: any) {
+      setChatTurns(prev => [
+        ...prev,
+        {
+          id: turnId,
+          timestamp: new Date().toLocaleTimeString(),
+          prompt: promptToSend,
+          mode: consoleMode,
+          responsePayload: {
+            response: `Error connecting to gateway: ${err.message}`,
+            source: 'error',
+            latency: 0,
+            cache_lookup_latency_seconds: 0,
+            risk_assessment: { risk_score: 0, matched_signals: [], effective_threshold: 0 },
+            routing_decision: { provider: 'N/A', model: 'N/A', tier: 'N/A', reasoning: 'Gateway unreachable' },
+            estimated_cost_usd: 0,
+            similarity_score: null
+          },
+          showDetails: true
+        }
+      ]);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const toggleDetails = (turnId: string) => {
-    setChatTurns(prev => prev.map(turn => 
-      turn.id === turnId ? { ...turn, showDetails: !turn.showDetails } : turn
-    ));
+  const toggleTurnDetails = (turnId: string) => {
+    setChatTurns(prev =>
+      prev.map(turn =>
+        turn.id === turnId ? { ...turn, showDetails: !turn.showDetails } : turn
+      )
+    );
   };
 
+  const handleNewChat = () => {
+    setChatTurns([]);
+    setConsoleInput('');
+  };
 
+  const suggestions = [
+    {
+      category: 'Try a paraphrase',
+      subtitle: 'Triggers cache hit when semantically equivalent',
+      prompt: 'What is the capital of India?'
+    },
+    {
+      category: 'Try a risky action',
+      subtitle: 'Routes to capable 120B model (high-risk verb)',
+      prompt: 'Cancel my subscription and refund my account balance'
+    },
+    {
+      category: 'Try a trick question',
+      subtitle: 'NegationGuard catches opposite intent',
+      prompt: 'Do NOT revoke my API access keys immediately'
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-[#090a0f] text-slate-200 font-sans flex flex-col">
-      {/* 1. PERSISTENT TOP NAVBAR */}
-      <header className="border-b border-zinc-800/80 bg-[#0c0e17] px-6 py-3.5 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center space-x-3">
-          <div className="bg-indigo-600/20 border border-indigo-500/40 p-1.5 rounded">
-            <Activity className="w-5 h-5 text-indigo-400" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="text-base font-bold text-slate-100 tracking-tight font-mono">SENTINELCACHE</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-indigo-400 border border-zinc-800">
-                v0.5.0
-              </span>
+    <div className="flex h-screen bg-zinc-900 text-zinc-100 font-sans antialiased overflow-hidden">
+      {/* ---------------------------------------------------------------- border-r border-zinc-800/80 ---------------- */}
+      {/* Left Sidebar (ChatGPT layout ~260px wide) */}
+      {/* ---------------------------------------------------------------- ---------------- */}
+      <aside className={`bg-zinc-950 flex flex-col transition-all duration-300 border-r border-zinc-800/60 z-20 ${sidebarOpen ? 'w-64' : 'w-0 -ml-64'} md:relative fixed inset-y-0 left-0`}>
+        <div className="p-3 flex items-center justify-between border-b border-zinc-800/50">
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <Shield className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <span className="font-semibold text-sm tracking-tight text-zinc-100">SentinelCache</span>
+              <span className="text-[10px] block text-emerald-400 font-mono leading-none">v0.5.0 Gateway</span>
             </div>
           </div>
+          <button 
+            onClick={() => setSidebarOpen(false)}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors"
+            title="Collapse Sidebar"
+          >
+            <PanelLeft className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Navbar Items Right */}
-        <nav className="flex items-center space-x-8 text-xs font-medium">
+        {/* New Chat Button */}
+        <div className="p-3">
+          <button
+            onClick={handleNewChat}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-zinc-900 hover:bg-zinc-800/80 text-zinc-100 text-sm font-medium border border-zinc-800 transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4 text-emerald-400" />
+            <span>New Chat</span>
+          </button>
+        </div>
+
+        {/* Navigation List */}
+        <nav className="flex-1 px-3 space-y-1 py-2">
           <button
             onClick={() => setActiveTab('chat')}
-            className={`flex items-center space-x-2 py-1 transition-colors border-b-2 ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-left ${
               activeTab === 'chat'
-                ? 'border-indigo-500 text-slate-100 font-semibold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'bg-zinc-800/90 text-zinc-100 font-medium shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/80'
             }`}
           >
-            <MessageSquare className="w-4 h-4" />
-            <span>Chat</span>
+            <MessageSquare className={`w-4 h-4 ${activeTab === 'chat' ? 'text-emerald-400' : ''}`} />
+            <span>Chat Console</span>
           </button>
 
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center space-x-2 py-1 transition-colors border-b-2 ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-left ${
               activeTab === 'dashboard'
-                ? 'border-indigo-500 text-slate-100 font-semibold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'bg-zinc-800/90 text-zinc-100 font-medium shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/80'
             }`}
           >
-            <LayoutDashboard className="w-4 h-4" />
+            <LayoutDashboard className={`w-4 h-4 ${activeTab === 'dashboard' ? 'text-emerald-400' : ''}`} />
             <span>Dashboard</span>
           </button>
 
           <button
             onClick={() => setActiveTab('evaluation')}
-            className={`flex items-center space-x-2 py-1 transition-colors border-b-2 ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-left ${
               activeTab === 'evaluation'
-                ? 'border-indigo-500 text-slate-100 font-semibold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'bg-zinc-800/90 text-zinc-100 font-medium shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/80'
             }`}
           >
-            <BarChart3 className="w-4 h-4" />
+            <BarChart3 className={`w-4 h-4 ${activeTab === 'evaluation' ? 'text-emerald-400' : ''}`} />
             <span>Evaluation</span>
           </button>
         </nav>
-      </header>
 
-      {/* MAIN CONTAINER */}
-      <div className="flex-1 flex flex-col">
-        {/* TAB 1: ADAPTED CHAT VIEW */}
+        {/* System Telemetry Quick Stats Footer */}
+        <div className="p-3 border-t border-zinc-800/60 bg-zinc-950/80">
+          <div className="bg-zinc-900/70 border border-zinc-800/60 rounded-lg p-2.5 space-y-1.5 text-xs font-mono">
+            <div className="flex justify-between text-zinc-400">
+              <span>Overall Hit Rate</span>
+              <span className="text-emerald-400 font-semibold">{((summary?.overall_hit_rate || 0) * 100).toFixed(1)}%</span>
+            </div>
+            <div className="flex justify-between text-zinc-400">
+              <span>Cost Saved</span>
+              <span className="text-emerald-400">${(summary?.estimated_cost_saved_usd || 0).toFixed(4)}</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ---------------------------------------------------------------- ---------------- */}
+      {/* Main Content Area */}
+      {/* ---------------------------------------------------------------- ---------------- */}
+      <main className="flex-1 flex flex-col h-full bg-zinc-900 relative overflow-hidden">
+        {/* Top Header Bar */}
+        <header className="h-14 border-b border-zinc-800/60 flex items-center px-4 justify-between bg-zinc-900/80 backdrop-blur-sm sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            {!sidebarOpen && (
+              <button 
+                onClick={() => setSidebarOpen(true)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                title="Expand Sidebar"
+              >
+                <PanelLeft className="w-5 h-5" />
+              </button>
+            )}
+            <h1 className="text-base font-semibold text-zinc-100">
+              {activeTab === 'chat' && 'Chat Console'}
+              {activeTab === 'dashboard' && 'Observability Dashboard'}
+              {activeTab === 'evaluation' && 'Evaluation Benchmark Matrix'}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-xs font-mono text-zinc-400 bg-zinc-800/60 px-2.5 py-1 rounded-full border border-zinc-700/50">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Gateway Online
+            </span>
+          </div>
+        </header>
+
+        {/* ---------------------------------------------------------------- ---------------- */}
+        {/* TAB 1: CHAT CONSOLE */}
+        {/* ---------------------------------------------------------------- ---------------- */}
         {activeTab === 'chat' && (
-          <div className="flex-1 flex flex-col justify-between max-w-4xl mx-auto w-full px-4 py-6">
-            {/* EMPTY STATE LAYOUT (before any message is sent) */}
-            {chatTurns.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center my-auto space-y-8 py-8">
-                {/* Logo & Welcome Header */}
-                <div className="text-center space-y-3">
-                  <div className="inline-flex p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-indigo-400 mb-2">
-                    <Activity className="w-8 h-8" />
-                  </div>
-                  <h1 className="text-2xl font-bold text-slate-100 tracking-tight">SentinelCache Gateway</h1>
-                  <p className="text-sm text-slate-400 max-w-md mx-auto">
-                    Intelligent risk-aware semantic prompt caching & dynamic multi-provider LLM routing
-                  </p>
-                </div>
+          <div className="flex-1 flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
+            {/* Scrollable Chat Area */}
+            <div className="flex-1 overflow-y-auto px-4 py-6">
+              <div className="max-w-3xl mx-auto space-y-6">
+                
+                {/* Empty State */}
+                {chatTurns.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 text-center space-y-6">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-700/10 border border-emerald-500/30 flex items-center justify-center shadow-lg shadow-emerald-950/30">
+                      <Shield className="w-7 h-7 text-emerald-400" />
+                    </div>
+                    
+                    <div className="space-y-2 max-w-md">
+                      <h2 className="text-2xl font-bold text-zinc-100 tracking-tight">SentinelCache Gateway</h2>
+                      <p className="text-sm text-zinc-400 leading-relaxed">
+                        Intent-aware semantic caching and dynamic LLM routing. Ask a factual prompt or test semantic cache hits & safety guards.
+                      </p>
+                    </div>
 
-                {/* Centered Input Box Container */}
-                <div className="w-full max-w-2xl bg-zinc-900/90 border border-zinc-800 rounded-xl p-3 shadow-xl space-y-3">
+                    {/* Suggestion Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-2xl pt-4">
+                      {suggestions.map((s, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleSendPrompt(s.prompt)}
+                          className="p-3.5 rounded-xl bg-zinc-950/60 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 text-left transition-all group flex flex-col justify-between"
+                        >
+                          <div>
+                            <span className="text-xs font-semibold text-emerald-400 block mb-1">{s.category}</span>
+                            <p className="text-xs text-zinc-300 font-medium line-clamp-2">"{s.prompt}"</p>
+                          </div>
+                          <span className="text-[10px] text-zinc-500 block mt-2 group-hover:text-zinc-400 transition-colors">{s.subtitle}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Active Chat Threads */}
+                {chatTurns.map((turn) => {
+                  const payload = turn.responsePayload;
+                  const source = payload?.source;
+                  const tier = payload?.routing_decision?.tier;
+                  const guardReason = payload?.guard_reason;
+
+                  return (
+                    <div key={turn.id} className="space-y-4">
+                      {/* User Prompt Bubble */}
+                      <div className="flex justify-end">
+                        <div className="bg-zinc-800 text-zinc-100 rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] text-sm shadow-sm border border-zinc-700/50">
+                          {turn.prompt}
+                        </div>
+                      </div>
+
+                      {/* Assistant Response Container */}
+                      <div className="flex flex-col items-start max-w-[90%] space-y-2">
+                        {/* Status Line */}
+                        <div className="flex items-center gap-2 text-xs font-mono">
+                          {source === 'cache' && (
+                            <span className="inline-flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20 font-medium">
+                              <Zap className="w-3.5 h-3.5" />
+                              Instant response from cache — {Math.round((payload.latency || 0) * 1000)}ms
+                            </span>
+                          )}
+
+                          {source === 'llm' && guardReason && (
+                            <span className="inline-flex items-center gap-1.5 text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20 font-medium">
+                              <ShieldAlert className="w-3.5 h-3.5" />
+                              Cache skipped for safety ({guardReason}) — {Math.round((payload.latency || 0) * 1000)}ms
+                            </span>
+                          )}
+
+                          {source === 'llm' && !guardReason && tier === 'fast_cheap' && (
+                            <span className="inline-flex items-center gap-1.5 text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-md border border-sky-500/20 font-medium">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              Fresh response — routed to fast model — {Math.round((payload.latency || 0) * 1000)}ms
+                            </span>
+                          )}
+
+                          {source === 'llm' && !guardReason && tier === 'capable_expensive' && (
+                            <span className="inline-flex items-center gap-1.5 text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-md border border-purple-500/20 font-medium">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              Fresh response — routed to advanced model — {Math.round((payload.latency || 0) * 1000)}ms
+                            </span>
+                          )}
+
+                          {source === 'error' && (
+                            <span className="inline-flex items-center gap-1.5 text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-md border border-rose-500/20 font-medium">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              Gateway Error
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Text Response Body */}
+                        <div className="bg-zinc-950/70 border border-zinc-800 rounded-2xl rounded-tl-sm p-4 text-sm text-zinc-200 leading-relaxed w-full shadow-sm">
+                          {payload.response}
+                        </div>
+
+                        {/* Collapsible Telemetry Details Drawer */}
+                        <div className="w-full pt-1">
+                          <button
+                            onClick={() => toggleTurnDetails(turn.id)}
+                            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors py-1"
+                          >
+                            <span>Telemetry Details</span>
+                            {turn.showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </button>
+
+                          {turn.showDetails && (
+                            <div className="mt-2 bg-zinc-950/90 border border-zinc-800/80 rounded-xl p-3.5 text-xs font-mono space-y-2 text-zinc-300">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div>
+                                  <span className="text-zinc-500 block">Similarity Score</span>
+                                  <span className="font-semibold text-emerald-400">
+                                    {payload.similarity_score !== null && payload.similarity_score !== undefined
+                                      ? payload.similarity_score.toFixed(4)
+                                      : 'N/A'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-zinc-500 block">Risk Score</span>
+                                  <span className="font-semibold text-zinc-200">
+                                    {payload.risk_assessment?.risk_score?.toFixed(2) ?? '0.00'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-zinc-500 block">Effective Threshold</span>
+                                  <span className="font-semibold text-zinc-200">
+                                    {payload.risk_assessment?.effective_threshold?.toFixed(4) ?? '0.0000'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-zinc-500 block">Provider / Model</span>
+                                  <span className="font-semibold text-zinc-200">
+                                    {payload.routing_decision?.provider} ({payload.routing_decision?.model})
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-zinc-500 block">Routing Tier</span>
+                                  <span className="font-semibold text-zinc-200">
+                                    {payload.routing_decision?.tier}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-zinc-500 block">Estimated Cost</span>
+                                  <span className="font-semibold text-zinc-200">
+                                    ${(payload.estimated_cost_usd || 0).toFixed(6)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {payload.routing_decision?.reasoning && (
+                                <div className="pt-2 border-t border-zinc-800/80 text-[11px] text-zinc-400">
+                                  <span className="text-zinc-500 font-semibold block">Routing Reasoning:</span>
+                                  {payload.routing_decision.reasoning}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Submitting Spinner */}
+                {submitting && (
+                  <div className="flex items-center gap-3 text-xs text-zinc-400 font-mono py-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                    <span>Evaluating risk & vector similarity...</span>
+                  </div>
+                )}
+
+                <div ref={chatBottomRef} />
+              </div>
+            </div>
+
+            {/* Docked Single-Box Input Bar */}
+            <div className="p-4 border-t border-zinc-800/60 bg-zinc-900/95 backdrop-blur-md">
+              <div className="max-w-3xl mx-auto space-y-2">
+                <div className="bg-zinc-950/80 border border-zinc-800 focus-within:border-emerald-500/60 rounded-2xl p-2 transition-all shadow-lg shadow-black/20">
                   <textarea
-                    rows={3}
                     value={consoleInput}
                     onChange={(e) => setConsoleInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        handleChatSubmit();
+                        handleSendPrompt();
                       }
                     }}
-                    placeholder="Ask a question or test a prompt..."
-                    className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none font-sans"
+                    placeholder="Send a prompt to SentinelCache..."
+                    rows={2}
+                    className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none px-3 py-1.5"
                   />
 
-                  {/* Inline Toggle Pills & Controls below text field */}
-                  <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80">
-                    <div className="flex items-center space-x-1.5 text-xs">
-                      <span className="text-[11px] font-mono text-slate-400 mr-1">Cache Mode:</span>
+                  {/* Inline Controls & Mode Selection Pills */}
+                  <div className="flex items-center justify-between pt-2 px-2 border-t border-zinc-800/50">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-zinc-500 font-mono mr-1">Mode:</span>
                       {(['hybrid', 'adaptive', 'fixed', 'disabled'] as const).map((m) => (
                         <button
                           key={m}
-                          type="button"
                           onClick={() => setConsoleMode(m)}
-                          className={`px-2.5 py-1 rounded text-xs font-mono transition-colors ${
+                          className={`px-2.5 py-1 rounded-md text-xs font-mono transition-all capitalize ${
                             consoleMode === m
-                              ? 'bg-indigo-600 text-white font-medium'
-                              : 'bg-zinc-800/70 text-slate-400 hover:bg-zinc-800 hover:text-slate-200'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold'
+                              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
                           }`}
                         >
                           {m}
@@ -282,481 +559,239 @@ export default function App() {
                     </div>
 
                     <button
-                      onClick={() => handleChatSubmit()}
-                      disabled={submitting || !consoleInput.trim()}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-lg transition-colors disabled:opacity-40"
+                      onClick={() => handleSendPrompt()}
+                      disabled={!consoleInput.trim() || submitting}
+                      className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white transition-all shadow-md shadow-emerald-950/40"
                     >
-                      {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      <Send className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                {/* Command-Category Suggestion Grid (3 Categories) */}
-                <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-3 gap-3 font-mono text-xs">
-                  {/* Category 1: Try a Paraphrase */}
-                  <div className="bg-zinc-900/60 border border-zinc-800 p-3.5 rounded-lg space-y-2">
-                    <div className="flex items-center space-x-1.5 text-emerald-400 font-semibold text-[11px]">
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>Try a paraphrase</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <button
-                        onClick={() => handleChatSubmit(undefined, 'When was the Eiffel Tower built?')}
-                        className="w-full text-left text-slate-300 hover:text-white bg-zinc-800/40 hover:bg-zinc-800 p-2 rounded text-[11px] font-sans transition-colors line-clamp-2"
-                      >
-                        "When was the Eiffel Tower built?"
-                      </button>
-                      <button
-                        onClick={() => handleChatSubmit(undefined, 'In what year was construction of the Eiffel Tower completed?')}
-                        className="w-full text-left text-slate-300 hover:text-white bg-zinc-800/40 hover:bg-zinc-800 p-2 rounded text-[11px] font-sans transition-colors line-clamp-2"
-                      >
-                        "In what year was construction of the Eiffel Tower completed?"
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Category 2: Try a Risky Action */}
-                  <div className="bg-zinc-900/60 border border-zinc-800 p-3.5 rounded-lg space-y-2">
-                    <div className="flex items-center space-x-1.5 text-purple-400 font-semibold text-[11px]">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Try a risky action</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <button
-                        onClick={() => handleChatSubmit(undefined, 'Cancel my subscription and refund my payment.')}
-                        className="w-full text-left text-slate-300 hover:text-white bg-zinc-800/40 hover:bg-zinc-800 p-2 rounded text-[11px] font-sans transition-colors line-clamp-2"
-                      >
-                        "Cancel my subscription and refund my payment."
-                      </button>
-                      <button
-                        onClick={() => handleChatSubmit(undefined, 'Transfer $500 to account number 123456789.')}
-                        className="w-full text-left text-slate-300 hover:text-white bg-zinc-800/40 hover:bg-zinc-800 p-2 rounded text-[11px] font-sans transition-colors line-clamp-2"
-                      >
-                        "Transfer $500 to account 123456789."
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Category 3: Try a Trick Question */}
-                  <div className="bg-zinc-900/60 border border-zinc-800 p-3.5 rounded-lg space-y-2">
-                    <div className="flex items-center space-x-1.5 text-amber-400 font-semibold text-[11px]">
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      <span>Try a trick question</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <button
-                        onClick={() => handleChatSubmit(undefined, 'Do NOT revoke API access keys for team members.')}
-                        className="w-full text-left text-slate-300 hover:text-white bg-zinc-800/40 hover:bg-zinc-800 p-2 rounded text-[11px] font-sans transition-colors line-clamp-2"
-                      >
-                        "Do NOT revoke API access keys..."
-                      </button>
-                      <button
-                        onClick={() => handleChatSubmit(undefined, 'Show sales reports for Q4 2025.')}
-                        className="w-full text-left text-slate-300 hover:text-white bg-zinc-800/40 hover:bg-zinc-800 p-2 rounded text-[11px] font-sans transition-colors line-clamp-2"
-                      >
-                        "Show sales reports for Q4 2025."
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <p className="text-[10px] text-center text-zinc-500 font-mono">
+                  SentinelCache inspects query risk & vector distance before serving from Qdrant or routing to LLM providers.
+                </p>
               </div>
-            ) : (
-              /* ACTIVE CHAT THREAD LAYOUT (messages stack, inputs docked at bottom) */
-              <div className="flex-1 flex flex-col justify-between space-y-4 pb-24">
-                <div className="space-y-6 pt-4">
-                  {chatTurns.map((turn) => {
-                    const payload = turn.responsePayload;
-                    const isCacheHit = payload.source === 'cache';
-                    const isBlocked = payload.source === 'llm' && payload.guard_reason;
-                    const isCapableTier = payload.routing_decision?.tier === 'capable_expensive';
-                    const latencyMs = Math.round((payload.latency || 0) * 1000);
-
-                    return (
-                      <div key={turn.id} className="space-y-3">
-                        {/* 3. User Message (right-aligned, subtle filled bubble, dark surface, no border) */}
-                        <div className="flex justify-end">
-                          <div className="bg-zinc-800/90 text-slate-100 p-3.5 rounded-2xl rounded-tr-sm max-w-xl text-sm font-sans">
-                            {turn.prompt}
-                          </div>
-                        </div>
-
-                        {/* 4. Assistant Response (left-aligned, plain readable prose, no bubble) */}
-                        <div className="flex justify-start">
-                          <div className="max-w-2xl space-y-2 text-sm text-slate-200 font-sans leading-relaxed">
-                            <div>{payload.response || JSON.stringify(payload)}</div>
-
-                            {/* 5. Human-Comprehensible Plain-Language Status Line */}
-                            <div className="flex items-center space-x-2 text-xs text-slate-400 pt-1 font-sans">
-                              {isCacheHit ? (
-                                <div className="flex items-center space-x-1.5 text-emerald-400">
-                                  <Zap className="w-4 h-4 fill-emerald-400/20" />
-                                  <span>Instant response from cache — {latencyMs}ms</span>
-                                </div>
-                              ) : isBlocked ? (
-                                <div className="flex items-center space-x-1.5 text-amber-400">
-                                  <ShieldAlert className="w-4 h-4" />
-                                  <span>Cache skipped for safety — this looked too similar to a different, riskier request</span>
-                                </div>
-                              ) : isCapableTier ? (
-                                <div className="flex items-center space-x-1.5 text-purple-400">
-                                  <Sparkles className="w-4 h-4" />
-                                  <span>Generated fresh — routed to advanced model (higher-risk request) — {(payload.latency).toFixed(2)}s</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center space-x-1.5 text-blue-400">
-                                  <Sparkles className="w-4 h-4" />
-                                  <span>Generated fresh — routed to fast model — {latencyMs}ms</span>
-                                </div>
-                              )}
-
-                              {/* 6. Small "Details" chevron toggle */}
-                              <button
-                                onClick={() => toggleDetails(turn.id)}
-                                className="ml-2 text-slate-500 hover:text-slate-300 flex items-center space-x-0.5 text-[11px] font-mono transition-colors"
-                              >
-                                <span>Details</span>
-                                {turn.showDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                              </button>
-                            </div>
-
-                            {/* Collapsible Technical Details Box */}
-                            {turn.showDetails && (
-                              <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-lg text-xs font-mono text-slate-300 space-y-1.5 mt-2">
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wider">TECHNICAL TELEMETRY</div>
-                                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                                  <div>Similarity Score: <strong className="text-indigo-400">{payload.similarity_score ? payload.similarity_score.toFixed(4) : 'N/A'}</strong></div>
-                                  <div>Risk Score: <strong className="text-amber-400">{payload.risk_assessment?.risk_score?.toFixed(2) ?? 'N/A'}</strong></div>
-                                  <div>Effective Threshold: <strong className="text-slate-200">{payload.risk_assessment?.effective_threshold?.toFixed(4) ?? 'N/A'}</strong></div>
-                                  <div>Cost: <strong className="text-emerald-400">${payload.estimated_cost_usd?.toFixed(6)}</strong></div>
-                                </div>
-                                <div className="text-[11px] text-slate-400 pt-1 border-t border-zinc-800">
-                                  Routing: {payload.routing_decision?.provider} ({payload.routing_decision?.model}) — {payload.routing_decision?.reasoning}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div ref={chatBottomRef} />
-                </div>
-              </div>
-            )}
-
-            {/* DOCKED FIXED BOTTOM INPUT BAR (active when thread exists) */}
-            {chatTurns.length > 0 && (
-              <div className="fixed bottom-0 left-0 right-0 bg-[#090a0f]/95 backdrop-blur border-t border-zinc-800/80 p-4 z-40">
-                <div className="max-w-3xl mx-auto space-y-2">
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={consoleInput}
-                      onChange={(e) => setConsoleInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleChatSubmit();
-                        }
-                      }}
-                      placeholder="Type a follow-up prompt..."
-                      className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none font-sans px-2"
-                    />
-
-                    {/* Inline Mode Selector Pills */}
-                    <div className="flex items-center space-x-1 bg-zinc-800/60 p-1 rounded-lg text-xs font-mono">
-                      {(['hybrid', 'adaptive', 'fixed', 'disabled'] as const).map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setConsoleMode(m)}
-                          className={`px-2 py-0.5 rounded text-[11px] transition-colors ${
-                            consoleMode === m ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-                          }`}
-                        >
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-
-                    <button
-                      onClick={() => handleChatSubmit()}
-                      disabled={submitting || !consoleInput.trim()}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-lg transition-colors disabled:opacity-40"
-                    >
-                      {submitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
-        {/* TAB 2: SYSTEM DASHBOARD */}
+        {/* ---------------------------------------------------------------- ---------------- */}
+        {/* TAB 2: OBSERVABILITY DASHBOARD */}
+        {/* ---------------------------------------------------------------- ---------------- */}
         {activeTab === 'dashboard' && (
-          <div className="max-w-7xl mx-auto w-full p-6 space-y-6">
-            {/* Stat Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-lg flex flex-col justify-between">
-                <div className="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1">TOTAL REQUESTS</div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-bold font-mono text-slate-100 tabular-nums">
-                    {summary?.total_requests || 0}
-                  </span>
-                  <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/50">
-                    {((summary?.overall_hit_rate || 0) * 100).toFixed(1)}% Hit Rate
-                  </span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-zinc-800 text-[11px] font-mono text-slate-400 flex justify-between">
-                  <span>Hits: <strong className="text-emerald-400">{summary?.hits || 0}</strong></span>
-                  <span>Misses: <strong className="text-slate-300">{summary?.misses || 0}</strong></span>
-                  <span>Blocked: <strong className="text-amber-400">{summary?.blocked_by_guard || 0}</strong></span>
-                </div>
-              </div>
-
-              <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-lg flex flex-col justify-between">
-                <div className="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1">LATENCY (MEDIAN / P95)</div>
-                <div className="flex items-baseline space-x-2 font-mono">
-                  <span className="text-2xl font-bold text-slate-100 tabular-nums">
-                    {summary?.median_latency_ms ? `${summary.median_latency_ms}ms` : '0ms'}
-                  </span>
-                  <span className="text-xs text-slate-400">/ {summary?.p95_latency_ms || 0}ms p95</span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-zinc-800 text-[11px] font-mono text-slate-400">
-                  Avg Latency: <span className="text-indigo-300">{summary?.avg_latency_ms || 0}ms</span>
-                </div>
-              </div>
-
-              <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-lg flex flex-col justify-between">
-                <div className="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1">API COST SPEND</div>
-                <div className="flex items-baseline justify-between font-mono">
-                  <span className="text-2xl font-bold text-slate-100 tabular-nums">
-                    ${(summary?.total_cost_usd || 0).toFixed(5)}
-                  </span>
-                  <span className="text-xs text-emerald-400">
-                    +${(summary?.estimated_cost_saved_usd || 0).toFixed(5)} Saved
-                  </span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-zinc-800 text-[11px] font-mono text-slate-400">
-                  Bypassed LLM Calls: <span className="text-emerald-400 font-bold">{summary?.hits || 0}</span>
-                </div>
-              </div>
-
-              <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-lg flex flex-col justify-between">
-                <div className="text-xs font-mono text-slate-400 uppercase tracking-wider mb-1">ROUTING DISTRIBUTION</div>
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono mt-1">
-                  <div className="bg-zinc-800/60 p-2 rounded border border-zinc-800">
-                    <div className="text-[10px] text-emerald-400">FAST & CHEAP</div>
-                    <div className="text-lg font-bold text-slate-100">{summary?.requests_by_tier?.fast_cheap || 0}</div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="max-w-6xl mx-auto space-y-6">
+              
+              {/* Metric Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-4 space-y-2">
+                  <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Total Requests</span>
+                  <div className="text-2xl font-bold text-zinc-100 font-mono">{summary?.total_requests || 0}</div>
+                  <div className="text-[11px] text-zinc-500 flex gap-2">
+                    <span className="text-emerald-400">{summary?.hits || 0} hits</span>
+                    <span>•</span>
+                    <span>{summary?.misses || 0} misses</span>
                   </div>
-                  <div className="bg-zinc-800/60 p-2 rounded border border-zinc-800">
-                    <div className="text-[10px] text-purple-400">CAPABLE</div>
-                    <div className="text-lg font-bold text-slate-100">{summary?.requests_by_tier?.capable_expensive || 0}</div>
+                </div>
+
+                <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-4 space-y-2">
+                  <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Overall Hit Rate</span>
+                  <div className="text-2xl font-bold text-emerald-400 font-mono">
+                    {((summary?.overall_hit_rate || 0) * 100).toFixed(1)}%
+                  </div>
+                  <div className="text-[11px] text-zinc-500">
+                    {summary?.blocked_by_guard || 0} cache hits safety-blocked
+                  </div>
+                </div>
+
+                <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-4 space-y-2">
+                  <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Avg / Median Latency</span>
+                  <div className="text-2xl font-bold text-zinc-100 font-mono">
+                    {Math.round(summary?.avg_latency_ms || 0)}ms
+                  </div>
+                  <div className="text-[11px] text-zinc-500">
+                    Median: {Math.round(summary?.median_latency_ms || 0)}ms | P95: {Math.round(summary?.p95_latency_ms || 0)}ms
+                  </div>
+                </div>
+
+                <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-4 space-y-2">
+                  <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Cost & Savings</span>
+                  <div className="text-2xl font-bold text-emerald-400 font-mono">
+                    +${(summary?.estimated_cost_saved_usd || 0).toFixed(4)}
+                  </div>
+                  <div className="text-[11px] text-zinc-500">
+                    Spent: ${(summary?.total_cost_usd || 0).toFixed(4)}
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* 7. Timeseries Chart (Linear only, no fake interpolation) */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-sm font-bold text-slate-200 tracking-wide">SYSTEM PERFORMANCE OVER TIME</h2>
-                  <p className="text-xs text-slate-400">Real request telemetry timeseries (Linear interpolation)</p>
-                </div>
-                <div className="flex space-x-1 bg-zinc-800/60 p-1 rounded border border-zinc-800">
-                  {(['1h', '24h', '7d'] as const).map((w) => (
-                    <button
-                      key={w}
-                      onClick={() => setWindow(w)}
-                      className={`px-2.5 py-1 text-[11px] font-mono rounded ${
-                        window === w ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      {w.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="h-64 w-full">
-                {timeseries.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="hitRateGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.0}/>
-                        </linearGradient>
-                        <linearGradient id="latencyGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0}/>
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="timestamp" stroke="#475569" fontSize={11} tickLine={false} />
-                      <YAxis yAxisId="left" stroke="#10b981" fontSize={11} tickLine={false} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} domain={[0, 1]} />
-                      <YAxis yAxisId="right" orientation="right" stroke="#6366f1" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}ms`} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#0d0f17', borderColor: '#334155', borderRadius: '6px', fontSize: '12px' }}
-                        formatter={(val: any, name: any) => [
-                          name === 'hit_rate' ? `${(val * 100).toFixed(1)}%` : `${val} ms`,
-                          name === 'hit_rate' ? 'Hit Rate' : 'Avg Latency'
-                        ]}
-                      />
-                      <Area yAxisId="left" type="linear" dataKey="hit_rate" stroke="#10b981" fillOpacity={1} fill="url(#hitRateGrad)" strokeWidth={2} />
-                      <Area yAxisId="right" type="linear" dataKey="avg_latency_ms" stroke="#6366f1" fillOpacity={1} fill="url(#latencyGrad)" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-slate-500 font-mono text-xs border border-dashed border-zinc-800 rounded">
-                    No activity recorded in current time window ({window}). Send requests to populate timeseries.
+              {/* System Performance Over Time (Linear Scatter-Dot Plot) */}
+              <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-zinc-100">System Performance Over Time</h3>
+                    <p className="text-xs text-zinc-400">Request volume, hit rate, and latency metrics</p>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Recent Log Table */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-              <h2 className="text-sm font-bold text-slate-200 tracking-wide mb-3">RECENT REQUEST LOG</h2>
-              <div className="overflow-x-auto border border-zinc-800 rounded">
-                <table className="w-full text-left text-xs font-mono">
-                  <thead className="bg-zinc-800/80 text-slate-400 border-b border-zinc-800">
-                    <tr>
-                      <th className="p-3">TIME</th>
-                      <th className="p-3">PROMPT</th>
-                      <th className="p-3">OUTCOME</th>
-                      <th className="p-3">PROVIDER</th>
-                      <th className="p-3 text-right">LATENCY</th>
-                      <th className="p-3 text-right">COST</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/60 bg-zinc-950">
-                    {recent.map((r: RequestRecord) => (
-                      <tr key={r.id} className="hover:bg-zinc-900 transition-colors">
-                        <td className="p-3 text-slate-500 whitespace-nowrap">{new Date(r.timestamp).toLocaleTimeString()}</td>
-                        <td className="p-3 text-slate-200 font-sans max-w-xs truncate">{r.prompt}</td>
-                        <td className="p-3 whitespace-nowrap">
-                          {r.cache_outcome === 'hit' ? (
-                            <span className="text-emerald-400 font-bold">HIT</span>
-                          ) : r.cache_outcome === 'blocked_by_guard' ? (
-                            <span className="text-amber-400 font-bold">GUARD BLOCK</span>
-                          ) : (
-                            <span className="text-slate-400">MISS</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-slate-300">{r.provider} ({r.tier})</td>
-                        <td className="p-3 text-right text-slate-300">{r.latency_ms}ms</td>
-                        <td className="p-3 text-right text-emerald-400">${r.estimated_cost_usd.toFixed(6)}</td>
-                      </tr>
+                  <div className="flex items-center gap-1 bg-zinc-900 p-1 rounded-lg border border-zinc-800">
+                    {(['1h', '24h', '7d'] as const).map(w => (
+                      <button
+                        key={w}
+                        onClick={() => setWindow(w)}
+                        className={`px-2.5 py-1 text-xs font-mono rounded-md transition-colors ${
+                          window === w ? 'bg-zinc-800 text-zinc-100 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        {w}
+                      </button>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
+
+                <div className="h-64 w-full pt-4">
+                  {timeseries.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-xs text-zinc-500 font-mono">
+                      Collecting telemetry data...
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={timeseries}>
+                        <XAxis dataKey="timestamp" stroke="#52525b" fontSize={11} />
+                        <YAxis yAxisId="left" stroke="#52525b" fontSize={11} />
+                        <YAxis yAxisId="right" orientation="right" stroke="#52525b" fontSize={11} unit="ms" />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '0.5rem', fontSize: '12px' }}
+                        />
+                        <Line yAxisId="left" type="linear" dataKey="requests" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} name="Requests" />
+                        <Line yAxisId="right" type="linear" dataKey="avg_latency_ms" stroke="#38bdf8" strokeWidth={2} dot={{ r: 4 }} name="Avg Latency (ms)" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </div>
+
+              {/* Recent Requests Table */}
+              <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-zinc-100">Live System Telemetry</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-zinc-800 text-zinc-400">
+                        <th className="py-2.5 px-3">Time</th>
+                        <th className="py-2.5 px-3">Prompt</th>
+                        <th className="py-2.5 px-3">Outcome</th>
+                        <th className="py-2.5 px-3">Sim. Score</th>
+                        <th className="py-2.5 px-3">Risk</th>
+                        <th className="py-2.5 px-3">Provider</th>
+                        <th className="py-2.5 px-3">Latency</th>
+                        <th className="py-2.5 px-3">Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60">
+                      {recent.map((r) => (
+                        <tr key={r.id} className="hover:bg-zinc-900/50 transition-colors">
+                          <td className="py-2.5 px-3 text-zinc-500 whitespace-nowrap">
+                            {new Date(r.timestamp).toLocaleTimeString()}
+                          </td>
+                          <td className="py-2.5 px-3 text-zinc-200 max-w-xs truncate">
+                            {r.prompt}
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            {r.cache_outcome === 'hit' && (
+                              <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold">HIT</span>
+                            )}
+                            {r.cache_outcome === 'miss' && (
+                              <span className="text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded font-medium">MISS</span>
+                            )}
+                            {r.cache_outcome === 'blocked_by_guard' && (
+                              <span className="text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-semibold">BLOCKED</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-emerald-400">
+                            {r.similarity_score !== null && r.similarity_score !== undefined
+                              ? r.similarity_score.toFixed(4)
+                              : 'N/A'}
+                          </td>
+                          <td className="py-2.5 px-3 text-zinc-300">{r.risk_score.toFixed(2)}</td>
+                          <td className="py-2.5 px-3 text-zinc-400 whitespace-nowrap">{r.provider}</td>
+                          <td className="py-2.5 px-3 text-zinc-300 whitespace-nowrap">{Math.round(r.latency_ms)}ms</td>
+                          <td className="py-2.5 px-3 text-zinc-400 whitespace-nowrap">${r.estimated_cost_usd.toFixed(6)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
 
-        {/* TAB 3: EVALUATION VIEW */}
+        {/* ---------------------------------------------------------------- ---------------- */}
+        {/* TAB 3: EVALUATION BENCHMARK MATRIX */}
+        {/* ---------------------------------------------------------------- ---------------- */}
         {activeTab === 'evaluation' && (
-          <div className="max-w-7xl mx-auto w-full p-6 space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-              <div className="mb-6">
-                <h2 className="text-base font-bold text-slate-100 tracking-tight">CACHE EVALUATION BENCHMARK RESULTS</h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Empirical performance evaluation across 45 dataset pairs under 4 distinct operating modes.
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="max-w-6xl mx-auto space-y-6">
+              
+              <div className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-5 space-y-3">
+                <h2 className="text-base font-bold text-zinc-100">Benchmark Evaluation Matrix (45 Test Pairs)</h2>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Comparative performance across cache evaluation modes: Disabled (Baseline), Fixed Threshold (0.92), Adaptive Risk Thresholding, and Hybrid (Adaptive + Negation/Entity Guards).
                 </p>
               </div>
 
-              {/* Mode Descriptions Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-lg space-y-1">
-                  <div className="font-mono text-xs font-bold text-slate-300">1. DISABLED MODE</div>
-                  <p className="text-xs text-slate-400">Bypasses the semantic cache completely and forwards all incoming requests directly to the LLM providers.</p>
-                </div>
-                <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-lg space-y-1">
-                  <div className="font-mono text-xs font-bold text-slate-300">2. FIXED THRESHOLD (0.92)</div>
-                  <p className="text-xs text-slate-400">Applies a static similarity cutoff (0.92) regardless of request risk level, causing safety violations on operational queries.</p>
-                </div>
-                <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-lg space-y-1">
-                  <div className="font-mono text-xs font-bold text-slate-300">3. ADAPTIVE THRESHOLD (0.88 - 0.99)</div>
-                  <p className="text-xs text-slate-400">Dynamically scales similarity cutoffs based on intent risk classification to protect high-risk operational requests.</p>
-                </div>
-                <div className="bg-zinc-950 border border-indigo-900/60 p-4 rounded-lg space-y-1 bg-indigo-950/20">
-                  <div className="font-mono text-xs font-bold text-indigo-400">4. HYBRID GUARD MODE (PRODUCTION)</div>
-                  <p className="text-xs text-slate-300">Enforces deterministic NegationGuard and EntityGuard checks to guarantee 100% precision (0 false hits) on all requests.</p>
-                </div>
-              </div>
+              {evalResults && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {Object.entries(evalResults).map(([m, r]) => (
+                    <div key={m} className={`bg-zinc-950/90 border rounded-xl p-4 space-y-3 ${
+                      m === 'hybrid' ? 'border-emerald-500/50 shadow-lg shadow-emerald-950/20' : 'border-zinc-800'
+                    }`}>
+                      <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
+                        <span className="font-semibold text-sm capitalize text-zinc-100">{r.mode} Mode</span>
+                        {m === 'hybrid' && (
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30">
+                            Production Default
+                          </span>
+                        )}
+                      </div>
 
-              {/* Evaluation Grid Table */}
-              <div className="overflow-x-auto border border-zinc-800 rounded font-mono text-xs">
-                <table className="w-full text-left">
-                  <thead className="bg-zinc-800/80 text-slate-300 border-b border-zinc-800">
-                    <tr>
-                      <th className="p-3">EVALUATION METRIC</th>
-                      <th className="p-3 text-center">DISABLED</th>
-                      <th className="p-3 text-center">FIXED (0.92)</th>
-                      <th className="p-3 text-center">ADAPTIVE</th>
-                      <th className="p-3 text-center bg-indigo-950/40 text-indigo-300 border-x border-indigo-900/50">HYBRID GUARD (PRODUCTION)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/60 bg-zinc-950">
-                    <tr>
-                      <td className="p-3 font-semibold text-slate-200">True Positives (TP)</td>
-                      <td className="p-3 text-center text-slate-400">{evalResults?.disabled?.TP ?? 0}</td>
-                      <td className="p-3 text-center text-slate-300">{evalResults?.fixed?.TP ?? 5}</td>
-                      <td className="p-3 text-center text-slate-300">{evalResults?.adaptive?.TP ?? 5}</td>
-                      <td className="p-3 text-center font-bold text-emerald-400 bg-indigo-950/20 border-x border-indigo-900/30">{evalResults?.hybrid?.TP ?? 5}</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3 font-semibold text-slate-200">False Positives (FP - Safety Violations)</td>
-                      <td className="p-3 text-center text-slate-400">{evalResults?.disabled?.FP ?? 0}</td>
-                      <td className="p-3 text-center text-red-400 font-bold">{evalResults?.fixed?.FP ?? 5}</td>
-                      <td className="p-3 text-center text-amber-400">{evalResults?.adaptive?.FP ?? 2}</td>
-                      <td className="p-3 text-center font-bold text-emerald-400 bg-indigo-950/20 border-x border-indigo-900/30">{evalResults?.hybrid?.FP ?? 0}</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3 font-semibold text-slate-200">True Negatives (TN)</td>
-                      <td className="p-3 text-center text-slate-400">{evalResults?.disabled?.TN ?? 20}</td>
-                      <td className="p-3 text-center text-slate-300">{evalResults?.fixed?.TN ?? 15}</td>
-                      <td className="p-3 text-center text-slate-300">{evalResults?.adaptive?.TN ?? 18}</td>
-                      <td className="p-3 text-center text-slate-200 bg-indigo-950/20 border-x border-indigo-900/30">{evalResults?.hybrid?.TN ?? 20}</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3 font-semibold text-slate-200">Precision</td>
-                      <td className="p-3 text-center text-slate-500">0.00%</td>
-                      <td className="p-3 text-center text-red-400">50.00%</td>
-                      <td className="p-3 text-center text-amber-400">71.43%</td>
-                      <td className="p-3 text-center font-bold text-emerald-400 bg-indigo-950/20 border-x border-indigo-900/30">100.00%</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3 font-semibold text-slate-200">Recall (Overall)</td>
-                      <td className="p-3 text-center text-slate-500">0.00%</td>
-                      <td className="p-3 text-center text-slate-300">20.00%</td>
-                      <td className="p-3 text-center text-slate-300">20.00%</td>
-                      <td className="p-3 text-center font-bold text-indigo-300 bg-indigo-950/20 border-x border-indigo-900/30">20.00%</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3 font-semibold text-slate-200">False Positive Rate (FPR)</td>
-                      <td className="p-3 text-center text-slate-500">0.00%</td>
-                      <td className="p-3 text-center text-red-400">25.00%</td>
-                      <td className="p-3 text-center text-amber-400">10.00%</td>
-                      <td className="p-3 text-center font-bold text-emerald-400 bg-indigo-950/20 border-x border-indigo-900/30">0.00%</td>
-                    </tr>
-                    <tr>
-                      <td className="p-3 font-semibold text-slate-200">False Negative Rate (FNR)</td>
-                      <td className="p-3 text-center text-slate-500">100.00%</td>
-                      <td className="p-3 text-center text-slate-300">80.00%</td>
-                      <td className="p-3 text-center text-slate-300">80.00%</td>
-                      <td className="p-3 text-center text-slate-300 bg-indigo-950/20 border-x border-indigo-900/30">80.00%</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                      <div className="space-y-2 text-xs font-mono">
+                        <div className="flex justify-between">
+                          <span className="text-zinc-500">Precision</span>
+                          <span className="text-emerald-400 font-bold">{(r.precision * 100).toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-500">Recall</span>
+                          <span className="text-zinc-200">{(r.recall * 100).toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-500">False Positives (FP)</span>
+                          <span className={`font-bold ${r.FP === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{r.FP}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-500">True Positives (TP)</span>
+                          <span className="text-zinc-200">{r.TP}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-500">Overall Hit Rate</span>
+                          <span className="text-zinc-300">{(r.overall_hit_rate * 100).toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-500">Avg Latency</span>
+                          <span className="text-zinc-300">{Math.round(r.avg_latency_ms)}ms</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
             </div>
           </div>
         )}
-      </div>
+
+      </main>
     </div>
   );
 }

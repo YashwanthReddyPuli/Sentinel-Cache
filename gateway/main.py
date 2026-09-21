@@ -1,6 +1,7 @@
 
 import os
 import time
+import json
 import asyncio
 import logging
 from typing import Dict, Any, Tuple
@@ -107,6 +108,8 @@ class ChatResponse(BaseModel):
     risk_assessment: RiskAssessment = Field(..., description="Prompt risk classification and adaptive threshold mapping details")
     routing_decision: RoutingDecision = Field(..., description="Multi-provider routing selection & fallback details")
     estimated_cost_usd: float = Field(..., description="Estimated API request cost in USD")
+    similarity_score: float | None = Field(None, description="Raw cosine similarity score from vector cache lookup (if any candidate found)")
+    guard_reason: str | None = Field(None, description="Guard block reason if cache hit was intercepted")
 
 
 @app.get("/")
@@ -357,7 +360,9 @@ async def chat_completions(
             cache_lookup_latency_seconds=cache_lookup_latency,
             risk_assessment=risk_assessment_obj,
             routing_decision=routing_decision_obj,
-            estimated_cost_usd=0.0
+            estimated_cost_usd=0.0,
+            similarity_score=cached_hit.get("similarity_score", raw_sim),
+            guard_reason=guard_reason
         )
 
     # ----------------------------------------------------
@@ -452,5 +457,7 @@ async def chat_completions(
         cache_lookup_latency_seconds=cache_lookup_latency,
         risk_assessment=risk_assessment_obj,
         routing_decision=routing_decision_obj,
-        estimated_cost_usd=estimated_cost
+        estimated_cost_usd=estimated_cost,
+        similarity_score=raw_sim,
+        guard_reason=guard_reason
     )

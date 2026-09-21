@@ -94,7 +94,19 @@ def classify_risk(prompt: str) -> dict:
         }
 
     # ----------------------------------------------------
-    # Signal 3: Default Bucket
+    # Signal 3: Short / Terse Factual Queries (no action verbs, no negations)
+    # ----------------------------------------------------
+    matched_negations = [neg for neg in NEGATION_WORDS if re.search(r'\b' + re.escape(neg) + r'\b', clean_prompt)]
+
+    if word_count <= 8 and not matched_negations:
+        matched_signals.append("short_terse_factual_query")
+        return {
+            "risk_score": 0.20,
+            "matched_signals": matched_signals
+        }
+
+    # ----------------------------------------------------
+    # Signal 4: Default Bucket (Ambiguous / Longer Unclassified Queries)
     # ----------------------------------------------------
     matched_signals.append("default_heuristic")
     return {
