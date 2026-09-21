@@ -94,17 +94,12 @@ class CacheClient:
         risk_score: float = None,
         threshold: float = None,
         enable_guards: bool = True
-    ) -> dict | None:
+    ) -> tuple[dict | None, str | None, float | None]:
         """
         Searches the collection for the single nearest neighbor vector using adaptive thresholding
         and optional hybrid guard verification (NegationGuard & EntityGuard).
 
-        :param embedding: 384-dimensional query vector
-        :param current_prompt: Current user prompt string
-        :param risk_score: Optional risk score in [0.0, 1.0] used to map adaptive threshold
-        :param threshold: Optional fixed similarity threshold override
-        :param enable_guards: Whether to enforce NegationGuard and EntityGuard verification
-        :return: Payload dictionary if similarity >= effective_threshold and guards pass, else None
+        :return: Tuple of (payload_dict_or_None, guard_block_reason_or_None, similarity_score_or_None)
         """
         if risk_score is not None:
             effective_threshold = map_risk_to_threshold(risk_score)
@@ -121,7 +116,7 @@ class CacheClient:
             )
             points = results.points
             if not points:
-                return None
+                return None, None, None
 
             top_match = points[0]
             similarity_score = top_match.score
@@ -139,26 +134,26 @@ class CacheClient:
                             f"Cache HIT blocked by NegationGuard! Similarity {similarity_score:.4f} >= {effective_threshold:.4f}, "
                             f"but asymmetric negation detected between '{current_prompt}' and '{cached_prompt}'."
                         )
-                        return None
+                        return None, "NegationGuard: Asymmetric negation detected", similarity_score
 
                     if detect_entity_mismatch(current_prompt, cached_prompt):
                         logger.warning(
                             f"Cache HIT blocked by EntityGuard! Similarity {similarity_score:.4f} >= {effective_threshold:.4f}, "
                             f"but entity mismatch detected between '{current_prompt}' and '{cached_prompt}'."
                         )
-                        return None
+                        return None, "EntityGuard: Entity mismatch detected", similarity_score
 
                 payload["similarity_score"] = similarity_score
                 payload["effective_threshold"] = effective_threshold
                 logger.info(f"Cache HIT! Similarity score {similarity_score:.4f} >= threshold {effective_threshold:.4f}")
-                return payload
+                return payload, None, similarity_score
             else:
                 logger.info(f"Cache MISS. Similarity score {similarity_score:.4f} < threshold {effective_threshold:.4f}")
-                return None
+                return None, None, similarity_score
 
         except Exception as exc:
             logger.warning(f"Qdrant lookup failed: {exc}. Falling back to cache miss.")
-            return None
+            return None, None, None
 
     def store(self, prompt: str, embedding: list[float], response: str) -> None:
         """

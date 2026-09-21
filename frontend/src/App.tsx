@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Activity, Play, ShieldCheck, BarChart2, RefreshCw
+  Activity, Play, ShieldCheck, BarChart2, RefreshCw, Send, Trash2, Zap, ArrowRightLeft, ShieldAlert
 } from 'lucide-react';
 import { 
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer 
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer
 } from 'recharts';
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -65,6 +65,14 @@ interface EvalModeResult {
   median_latency_ms: number;
 }
 
+interface ChatTurn {
+  id: string;
+  timestamp: string;
+  prompt: string;
+  mode: string;
+  responsePayload: any;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'live' | 'benchmark' | 'playground'>('live');
   const [window, setWindow] = useState<'1h' | '24h' | '7d'>('1h');
@@ -75,13 +83,17 @@ export default function App() {
   const [recent, setRecent] = useState<RequestRecord[]>([]);
   const [evalResults, setEvalResults] = useState<Record<string, EvalModeResult> | null>(null);
   
-  // Interactive Playground state
-  const [testPrompt, setTestPrompt] = useState('When was the Eiffel Tower built?');
-  const [testMode, setTestMode] = useState<'hybrid' | 'adaptive' | 'fixed' | 'disabled'>('hybrid');
+  // Interactive Gateway Test Console (Conversation State)
+  const [consoleInput, setConsoleInput] = useState('');
+  const [consoleMode, setConsoleMode] = useState<'hybrid' | 'adaptive' | 'fixed' | 'disabled'>('hybrid');
   const [submitting, setSubmitting] = useState(false);
-  const [testResponse, setTestResponse] = useState<any>(null);
+  const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
+  const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  // Fetch telemetry
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Fetch telemetry from gateway metrics API
   const fetchTelemetry = async () => {
     try {
       const [sumRes, timeRes, recRes, evalRes] = await Promise.all([
@@ -106,26 +118,64 @@ export default function App() {
     return () => clearInterval(interval);
   }, [window]);
 
-  // Send request via playground
-  const handleTestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!testPrompt.trim()) return;
+  useEffect(() => {
+    if (activeTab === 'playground') {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatTurns, activeTab]);
+
+  // Send request via console
+  const handleConsoleSubmit = async (e?: React.FormEvent, promptOverride?: string) => {
+    if (e) e.preventDefault();
+    const promptToSend = promptOverride || consoleInput;
+    if (!promptToSend.trim() || submitting) return;
+    
     setSubmitting(true);
+    const timestamp = new Date().toLocaleTimeString();
+    
     try {
-      const res = await fetch(`${API_BASE}/v1/chat/completions?cache_mode=${testMode}`, {
+      const res = await fetch(`${API_BASE}/v1/chat/completions?cache_mode=${consoleMode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: testPrompt })
+        body: JSON.stringify({ prompt: promptToSend })
       });
       const data = await res.json();
-      setTestResponse(data);
+      
+      const newTurn: ChatTurn = {
+        id: `turn-${Date.now()}`,
+        timestamp,
+        prompt: promptToSend,
+        mode: consoleMode,
+        responsePayload: data
+      };
+
+      setChatTurns(prev => [...prev, newTurn]);
+      setSelectedTurnId(newTurn.id);
+      if (!promptOverride) setConsoleInput('');
       fetchTelemetry();
     } catch (err) {
-      console.error('Playground request failed:', err);
+      console.error('Console request failed:', err);
     } finally {
       setSubmitting(false);
     }
   };
+
+  // Clear Qdrant Cache
+  const handleClearCache = async () => {
+    try {
+      await fetch(`${API_BASE}/v1/cache/clear`, { method: 'POST' });
+      setShowClearConfirm(false);
+      fetchTelemetry();
+    } catch (err) {
+      console.error('Failed to clear cache:', err);
+    }
+  };
+
+  // Selected turn for Request Inspector panel
+  const selectedTurn = chatTurns.find(t => t.id === selectedTurnId) || chatTurns[chatTurns.length - 1];
+
+  // Total real data points in timeseries with non-zero requests
+  const activeDataPointsCount = timeseries.filter(p => p.requests > 0).length;
 
   return (
     <div className="min-h-screen bg-[#090a0f] text-slate-200 font-sans border-t-2 border-indigo-500">
@@ -258,7 +308,14 @@ export default function App() {
             <div className="bg-[#0f121d] border border-slate-800 rounded-lg p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-200 tracking-wide">SYSTEM PERFORMANCE OVER TIME</h2>
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-sm font-bold text-slate-200 tracking-wide">SYSTEM PERFORMANCE OVER TIME</h2>
+                    {activeDataPointsCount < 5 && activeDataPointsCount > 0 && (
+                      <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800">
+                        Collecting more telemetry data ({activeDataPointsCount}/5 points)
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-400">Cache hit rate trajectory and request latency distribution</p>
                 </div>
                 <div className="flex space-x-1 bg-[#161a29] p-1 rounded border border-slate-800">
@@ -300,13 +357,14 @@ export default function App() {
                           name === 'hit_rate' ? 'Hit Rate' : 'Avg Latency'
                         ]}
                       />
-                      <Area yAxisId="left" type="monotone" dataKey="hit_rate" stroke="#10b981" fillOpacity={1} fill="url(#hitRateGrad)" strokeWidth={2} />
-                      <Area yAxisId="right" type="monotone" dataKey="avg_latency_ms" stroke="#6366f1" fillOpacity={1} fill="url(#latencyGrad)" strokeWidth={2} />
+                      {/* FIX 1: Use type="linear" to prevent artificial bell-curve interpolation on sparse data */}
+                      <Area yAxisId="left" type="linear" dataKey="hit_rate" stroke="#10b981" fillOpacity={1} fill="url(#hitRateGrad)" strokeWidth={2} />
+                      <Area yAxisId="right" type="linear" dataKey="avg_latency_ms" stroke="#6366f1" fillOpacity={1} fill="url(#latencyGrad)" strokeWidth={2} />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-slate-500 font-mono text-xs border border-dashed border-slate-800 rounded">
-                    No activity recorded in current time window ({window}). Send requests to populate timeseries.
+                    No activity recorded in current time window ({window}). Send requests via Gateway Test Console to populate timeseries.
                   </div>
                 )}
               </div>
@@ -501,144 +559,277 @@ export default function App() {
           </div>
         )}
 
-        {/* Console / Playground Tab */}
+        {/* BUILD — Interactive Technical Request/Response Inspector Chat Console */}
         {activeTab === 'playground' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Input Console */}
-            <div className="bg-[#0f121d] border border-slate-800 rounded-lg p-5 flex flex-col justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-200 tracking-wide mb-1">PROMPT DISPATCH CONSOLE</h2>
-                <p className="text-xs text-slate-400 mb-4">Send prompts directly to the gateway to observe risk scoring and cache routing</p>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[620px]">
+            {/* Left Column (65% width = 8 cols out of 12): Conversation Thread & Input Area */}
+            <div className="lg:col-span-8 bg-[#0f121d] border border-slate-800 rounded-lg flex flex-col justify-between overflow-hidden">
+              {/* Thread Header & Quick Presets */}
+              <div className="p-4 border-b border-slate-800 bg-[#121522] flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-200 tracking-wide">GATEWAY REQUEST INSPECTOR CONSOLE</h2>
+                  <p className="text-[11px] text-slate-400">Interactive testing environment for manual prompt evaluation</p>
+                </div>
 
-                <form onSubmit={handleTestSubmit} className="space-y-4 font-mono">
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">CACHE EVALUATION MODE</label>
-                    <select
-                      value={testMode}
-                      onChange={(e: any) => setTestMode(e.target.value)}
-                      className="w-full bg-[#161a29] border border-slate-800 rounded px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="hybrid">hybrid (Adaptive + Negation & Entity Guards)</option>
-                      <option value="adaptive">adaptive (Risk-Based Linear Mapping)</option>
-                      <option value="fixed">fixed (Constant 0.92 Threshold)</option>
-                      <option value="disabled">disabled (Bypass Cache Completely)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">PROMPT TEXT</label>
-                    <textarea
-                      rows={4}
-                      value={testPrompt}
-                      onChange={(e) => setTestPrompt(e.target.value)}
-                      className="w-full bg-[#161a29] border border-slate-800 rounded p-3 text-xs text-slate-200 font-sans focus:outline-none focus:border-indigo-500"
-                      placeholder="Enter a prompt..."
-                    />
-                  </div>
-
+                <div className="flex items-center space-x-2 font-mono text-xs">
+                  {/* Preset quick buttons */}
                   <button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
+                    onClick={() => handleConsoleSubmit(undefined, 'When was the Eiffel Tower built?')}
+                    className="bg-[#181d2e] hover:bg-slate-800 text-slate-300 border border-slate-700/80 px-2 py-1 rounded text-[11px] transition-colors"
                   >
-                    {submitting ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Play className="w-3.5 h-3.5" />
-                        <span>DISPATCH TO GATEWAY</span>
-                      </>
-                    )}
-                  </button>
-                </form>
-              </div>
-
-              {/* Sample Prompts */}
-              <div className="mt-6 pt-4 border-t border-slate-800/80">
-                <div className="text-[11px] font-mono text-slate-400 mb-2">QUICK BENCHMARK SAMPLES:</div>
-                <div className="flex flex-wrap gap-1.5 font-mono text-[11px]">
-                  <button
-                    onClick={() => setTestPrompt('When was the Eiffel Tower built?')}
-                    className="bg-[#161a29] hover:bg-slate-800 border border-slate-800 text-slate-300 px-2 py-1 rounded"
-                  >
-                    Eiffel Tower (Pair 5)
+                    Eiffel Tower
                   </button>
                   <button
-                    onClick={() => setTestPrompt('Transfer $500 to account number 987654321.')}
-                    className="bg-[#161a29] hover:bg-slate-800 border border-slate-800 text-slate-300 px-2 py-1 rounded"
+                    onClick={() => handleConsoleSubmit(undefined, 'Do NOT revoke API access keys for team members.')}
+                    className="bg-[#181d2e] hover:bg-slate-800 text-slate-300 border border-slate-700/80 px-2 py-1 rounded text-[11px] transition-colors"
                   >
-                    Account Transfer (Pair 35)
+                    Negation Flip
                   </button>
                   <button
-                    onClick={() => setTestPrompt('Revoke API access keys for all team members.')}
-                    className="bg-[#161a29] hover:bg-slate-800 border border-slate-800 text-slate-300 px-2 py-1 rounded"
+                    onClick={() => handleConsoleSubmit(undefined, 'Transfer $500 to account number 987654321.')}
+                    className="bg-[#181d2e] hover:bg-slate-800 text-slate-300 border border-slate-700/80 px-2 py-1 rounded text-[11px] transition-colors"
                   >
-                    API Revocation (Pair 30)
+                    Transfer
                   </button>
                 </div>
+              </div>
+
+              {/* Conversation Thread */}
+              <div className="p-4 space-y-6 flex-1 overflow-y-auto max-h-[460px] bg-[#0b0c13]">
+                {chatTurns.length > 0 ? (
+                  chatTurns.map((turn) => {
+                    const payload = turn.responsePayload;
+                    const isSelected = (selectedTurnId === turn.id);
+                    const isCacheHit = payload.source === 'cache';
+                    const isBlocked = payload.source === 'llm' && payload.guard_reason; // or check telemetry
+
+                    return (
+                      <div 
+                        key={turn.id} 
+                        onClick={() => setSelectedTurnId(turn.id)}
+                        className={`space-y-3 cursor-pointer p-3 rounded-lg border transition-all ${
+                          isSelected ? 'border-indigo-500/80 bg-[#121524]' : 'border-slate-800/80 bg-[#0e1019] hover:border-slate-700'
+                        }`}
+                      >
+                        {/* Prompt (User turn - right-aligned, flat bordered box, monospace) */}
+                        <div className="flex justify-end">
+                          <div className="bg-[#161a29] border border-slate-700/70 p-3 rounded text-xs font-mono text-slate-200 max-w-xl">
+                            <div className="text-[10px] text-slate-400 mb-1 flex items-center justify-between">
+                              <span>PROMPT [{turn.mode.toUpperCase()}]</span>
+                              <span>{turn.timestamp}</span>
+                            </div>
+                            {turn.prompt}
+                          </div>
+                        </div>
+
+                        {/* Gateway Response (Left-aligned, plain text prose) */}
+                        <div className="flex justify-start">
+                          <div className="bg-[#111420] border border-slate-800 p-3.5 rounded text-xs font-sans text-slate-200 max-w-2xl space-y-2">
+                            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">GATEWAY RESPONSE</div>
+                            <div className="leading-relaxed">{payload.response || JSON.stringify(payload)}</div>
+                            
+                            {/* Metadata Strip (Compact horizontal line with Lucide inline icon) */}
+                            <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center space-x-2 text-[11px] font-mono text-slate-400">
+                              {isCacheHit ? (
+                                <span className="flex items-center space-x-1 text-emerald-400 font-bold">
+                                  <Zap className="w-3.5 h-3.5 text-emerald-400 inline" />
+                                  <span>source: cache</span>
+                                </span>
+                              ) : isBlocked ? (
+                                <span className="flex items-center space-x-1 text-amber-400 font-bold">
+                                  <ShieldAlert className="w-3.5 h-3.5 text-amber-400 inline" />
+                                  <span>source: guard-block</span>
+                                </span>
+                              ) : (
+                                <span className="flex items-center space-x-1 text-indigo-400 font-bold">
+                                  <ArrowRightLeft className="w-3.5 h-3.5 text-indigo-400 inline" />
+                                  <span>source: llm</span>
+                                </span>
+                              )}
+
+                              <span>·</span>
+                              <span>sim: {payload.similarity_score ? payload.similarity_score.toFixed(3) : 'N/A'}</span>
+                              <span>·</span>
+                              <span>risk: {payload.risk_assessment?.risk_score?.toFixed(2) ?? 'N/A'}</span>
+                              <span>·</span>
+                              <span>threshold: {payload.risk_assessment?.effective_threshold?.toFixed(3) ?? 'N/A'}</span>
+                              <span>·</span>
+                              <span>{payload.routing_decision?.provider} ({payload.routing_decision?.tier})</span>
+                              <span>·</span>
+                              <span>latency: {(payload.latency * 1000).toFixed(0)}ms</span>
+                              <span>·</span>
+                              <span className="text-emerald-400">${payload.estimated_cost_usd?.toFixed(5)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="h-64 flex flex-col items-center justify-center text-slate-500 font-mono text-xs space-y-2 border border-dashed border-slate-800 rounded">
+                    <Play className="w-6 h-6 text-slate-600" />
+                    <span>Gateway Console Ready. Send a prompt below to begin testing.</span>
+                  </div>
+                )}
+                <div ref={chatBottomRef} />
+              </div>
+
+              {/* Input Area Fixed at Bottom */}
+              <div className="p-4 border-t border-slate-800 bg-[#0d0f17]">
+                <form onSubmit={(e) => handleConsoleSubmit(e)} className="space-y-3 font-mono">
+                  <div className="flex items-center justify-between">
+                    {/* Mode Segmented Control */}
+                    <div className="flex items-center space-x-1 bg-[#151824] p-1 rounded border border-slate-800 text-[11px]">
+                      {(['hybrid', 'adaptive', 'fixed', 'disabled'] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setConsoleMode(m)}
+                          className={`px-2.5 py-1 rounded transition-colors ${
+                            consoleMode === m ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Clear Qdrant Cache button with confirmation modal */}
+                    <div className="relative">
+                      {!showClearConfirm ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowClearConfirm(true)}
+                          className="px-2.5 py-1 text-[11px] bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-900/60 rounded flex items-center space-x-1 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Clear Cache</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center space-x-1 bg-red-950 p-1 rounded border border-red-800 text-[10px]">
+                          <span className="text-red-200 px-1">Confirm clear?</span>
+                          <button
+                            type="button"
+                            onClick={handleClearCache}
+                            className="bg-red-600 text-white font-bold px-2 py-0.5 rounded"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowClearConfirm(false)}
+                            className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded"
+                          >
+                            No
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Input row */}
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={consoleInput}
+                      onChange={(e) => setConsoleInput(e.target.value)}
+                      placeholder="Type a prompt to send through the SentinelCache gateway..."
+                      className="flex-1 bg-[#141724] border border-slate-800 rounded px-3.5 py-2.5 text-xs text-slate-100 font-sans focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={submitting || !consoleInput.trim()}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded transition-colors disabled:opacity-40 flex items-center justify-center"
+                    >
+                      {submitting ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
 
-            {/* Output Telemetry Box */}
-            <div className="bg-[#0f121d] border border-slate-800 rounded-lg p-5 flex flex-col">
-              <h2 className="text-sm font-bold text-slate-200 tracking-wide mb-1">GATEWAY RESPONSE TELEMETRY</h2>
-              <p className="text-xs text-slate-400 mb-4">Detailed breakdown of risk analysis, routing, and cache lookup</p>
-
-              {testResponse ? (
-                <div className="space-y-4 font-mono text-xs flex-1 overflow-y-auto">
-                  {/* Status outcome pill */}
-                  <div className="flex items-center justify-between bg-[#141724] p-3 rounded border border-slate-800">
-                    <span className="text-slate-400">RESPONSE ORIGIN</span>
-                    {testResponse.source === 'cache' ? (
-                      <span className="px-2.5 py-1 rounded font-bold text-emerald-400 bg-emerald-950 border border-emerald-800">
-                        CACHE HIT (LLM Bypassed)
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded font-bold text-indigo-300 bg-indigo-950 border border-indigo-800">
-                        CACHE MISS (LLM Dispatch)
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Response Text */}
-                  <div className="bg-[#141724] p-3 rounded border border-slate-800 space-y-1">
-                    <div className="text-[10px] text-slate-500">RESPONSE TEXT</div>
-                    <div className="text-slate-200 font-sans text-xs line-clamp-4">{testResponse.response}</div>
-                  </div>
-
-                  {/* Risk Assessment */}
-                  <div className="bg-[#141724] p-3 rounded border border-slate-800 space-y-2">
-                    <div className="text-[10px] text-slate-500">RISK ASSESSMENT & ADAPTIVE THRESHOLD</div>
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div>Risk Score: <strong className="text-amber-400">{testResponse.risk_assessment?.risk_score}</strong></div>
-                      <div>Effective Threshold: <strong className="text-indigo-400">{testResponse.risk_assessment?.effective_threshold}</strong></div>
-                    </div>
-                  </div>
-
-                  {/* Routing Decision */}
-                  <div className="bg-[#141724] p-3 rounded border border-slate-800 space-y-2">
-                    <div className="text-[10px] text-slate-500">MULTI-PROVIDER ROUTING DECISION</div>
-                    <div className="text-slate-300">Provider: <strong className="text-slate-100">{testResponse.routing_decision?.provider}</strong> ({testResponse.routing_decision?.model})</div>
-                    <div className="text-slate-400 text-[11px] font-sans">{testResponse.routing_decision?.reasoning}</div>
-                  </div>
-
-                  {/* Latency & Cost */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-[#141724] p-3 rounded border border-slate-800">
-                      <div className="text-[10px] text-slate-500">TOTAL LATENCY</div>
-                      <div className="text-sm font-bold text-slate-100">{(testResponse.latency * 1000).toFixed(1)} ms</div>
-                    </div>
-                    <div className="bg-[#141724] p-3 rounded border border-slate-800">
-                      <div className="text-[10px] text-slate-500">ESTIMATED COST</div>
-                      <div className="text-sm font-bold text-emerald-400">${testResponse.estimated_cost_usd?.toFixed(6)}</div>
-                    </div>
-                  </div>
+            {/* Right Column (35% width = 4 cols out of 12): Sticky Live Request Inspector Panel */}
+            <div className="lg:col-span-4 bg-[#0f121d] border border-slate-800 rounded-lg p-4 flex flex-col justify-between overflow-hidden font-mono">
+              <div>
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+                  <h2 className="text-xs font-bold text-slate-200 tracking-wider">REQUEST INSPECTOR</h2>
+                  <span className="text-[10px] text-slate-400">RAW TELEMETRY</span>
                 </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center border border-dashed border-slate-800 rounded p-6 text-center text-slate-500 font-mono text-xs">
-                  No response loaded. Send a prompt from the console to inspect raw response payload.
-                </div>
-              )}
+
+                {selectedTurn ? (
+                  <div className="space-y-4 text-xs overflow-y-auto max-h-[500px] pr-1">
+                    {/* Timestamp & Mode */}
+                    <div className="bg-[#141724] p-2.5 rounded border border-slate-800 space-y-1">
+                      <div className="text-[10px] text-slate-500">REQUEST ID & MODE</div>
+                      <div className="text-slate-200 font-bold">{selectedTurn.id} [{selectedTurn.mode.toUpperCase()}]</div>
+                      <div className="text-[10px] text-slate-400">{selectedTurn.timestamp}</div>
+                    </div>
+
+                    {/* Source & Outcome */}
+                    <div className="bg-[#141724] p-2.5 rounded border border-slate-800 space-y-1">
+                      <div className="text-[10px] text-slate-500">RESPONSE SOURCE</div>
+                      <div className="text-slate-200 font-bold flex items-center space-x-1.5">
+                        {selectedTurn.responsePayload.source === 'cache' ? (
+                          <span className="text-emerald-400">CACHE HIT (LLM Bypassed)</span>
+                        ) : (
+                          <span className="text-indigo-300">CACHE MISS (LLM Dispatch)</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Risk & Threshold Breakdown */}
+                    <div className="bg-[#141724] p-2.5 rounded border border-slate-800 space-y-1.5">
+                      <div className="text-[10px] text-slate-500">RISK & THRESHOLD ASSESSMENT</div>
+                      <div className="text-slate-300">
+                        Risk Score: <strong className="text-amber-400">{selectedTurn.responsePayload.risk_assessment?.risk_score}</strong>
+                      </div>
+                      <div className="text-slate-300">
+                        Effective Threshold: <strong className="text-indigo-400">{selectedTurn.responsePayload.risk_assessment?.effective_threshold}</strong>
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        Matched Signals: [{selectedTurn.responsePayload.risk_assessment?.matched_signals?.join(', ') || 'none'}]
+                      </div>
+                    </div>
+
+                    {/* Multi-provider Routing */}
+                    <div className="bg-[#141724] p-2.5 rounded border border-slate-800 space-y-1.5">
+                      <div className="text-[10px] text-slate-500">ROUTING SELECTION</div>
+                      <div className="text-slate-200 font-bold">
+                        {selectedTurn.responsePayload.routing_decision?.provider}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Model: {selectedTurn.responsePayload.routing_decision?.model}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Tier: {selectedTurn.responsePayload.routing_decision?.tier}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-sans leading-tight">
+                        {selectedTurn.responsePayload.routing_decision?.reasoning}
+                      </div>
+                    </div>
+
+                    {/* Full JSON Payload */}
+                    <div className="bg-[#141724] p-2.5 rounded border border-slate-800 space-y-1">
+                      <div className="text-[10px] text-slate-500">FULL GATEWAY JSON PAYLOAD</div>
+                      <pre className="text-[10px] text-slate-300 bg-[#0a0c14] p-2 rounded overflow-x-auto max-h-48 border border-slate-800">
+                        {JSON.stringify(selectedTurn.responsePayload, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-64 flex flex-col items-center justify-center text-slate-500 text-xs text-center border border-dashed border-slate-800 rounded p-4">
+                    <span>No request selected. Submit a prompt to view raw JSON telemetry.</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 text-[10px] text-slate-500 text-center">
+                SENTINELCACHE INSPECTOR ENGINE
+              </div>
             </div>
           </div>
         )}

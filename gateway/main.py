@@ -295,6 +295,8 @@ async def chat_completions(
     # ----------------------------------------------------
     cache_start_time = time.perf_counter()
     cached_hit = None
+    guard_reason = None
+    raw_sim = None
     prompt_embedding = None
 
     if mode != "disabled" and embedder and cache_client:
@@ -303,14 +305,14 @@ async def chat_completions(
             enable_guards = (mode == "hybrid")
 
             if mode == "fixed":
-                cached_hit = cache_client.lookup(
+                cached_hit, guard_reason, raw_sim = cache_client.lookup(
                     prompt_embedding,
                     current_prompt=request.prompt,
                     threshold=FIXED_THRESHOLD,
                     enable_guards=enable_guards
                 )
             else:
-                cached_hit = cache_client.lookup(
+                cached_hit, guard_reason, raw_sim = cache_client.lookup(
                     prompt_embedding,
                     current_prompt=request.prompt,
                     risk_score=risk_score,
@@ -431,15 +433,16 @@ async def chat_completions(
 
     metrics_store.record_request(
         prompt=request.prompt,
-        cache_outcome="miss",
-        similarity_score=None,
+        cache_outcome="blocked_by_guard" if guard_reason else "miss",
+        similarity_score=raw_sim,
         threshold_used=effective_threshold,
         risk_score=risk_score,
         provider=successful_provider["name"],
         model=successful_provider["model_name"],
         tier=successful_provider["priority_tier"],
         latency_ms=latency_ms,
-        estimated_cost_usd=estimated_cost
+        estimated_cost_usd=estimated_cost,
+        guard_reason=guard_reason
     )
 
     return ChatResponse(
