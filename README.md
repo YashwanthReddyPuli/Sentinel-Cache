@@ -2,10 +2,11 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
 [![Qdrant](https://img.shields.io/badge/Qdrant-Vector%20DB-red.svg)](https://qdrant.tech/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**SentinelCache** is an enterprise-grade, cloud-native AI API Gateway designed to optimize cost, latency, and safety for high-throughput LLM deployments. By integrating **intent risk classification**, **dynamic similarity thresholding**, **hybrid guard verification (Negation & Entity Guards)**, **tiered multi-provider routing**, and **automated outage fallback**, SentinelCache safely accelerates repetitive prompts while guaranteeing **0.0% False Positive Rate (0% safety violations)** on sensitive operational actions.
+**SentinelCache** is an enterprise-grade, cloud-native AI API Gateway designed to optimize cost, latency, and safety for high-throughput LLM deployments. By integrating **intent risk classification**, **dynamic similarity thresholding**, **hybrid guard verification (Negation & Entity Guards)**, **tiered multi-provider routing**, **automated outage fallback**, and a **Phase 5 custom React observability dashboard**, SentinelCache safely accelerates repetitive prompts while guaranteeing **0.0% False Positive Rate (0% safety violations)** on sensitive operational actions.
 
 ---
 
@@ -40,6 +41,8 @@ graph TD
     O -->|Success| P
     P --> Q[Return Unified JSON Telemetry Response]
     M --> Q
+    
+    Q --> R[Stage 5: Metrics API & React Observability Dashboard]
 ```
 
 ---
@@ -49,8 +52,9 @@ graph TD
 ```text
 sentinelcache/
 ├── gateway/                 # Core API Gateway implementation
-│   ├── main.py              # FastAPI endpoints, middleware & lifecycles
-│   └── cache.py             # Qdrant client, collection mgmt & guard enforcement
+│   ├── main.py              # FastAPI endpoints, CORS, metrics API & lifecycles
+│   ├── cache.py             # Qdrant client, collection mgmt & guard enforcement
+│   └── metrics.py           # In-memory telemetry store & timeseries aggregation
 ├── embedding/               # Vector embedding abstraction layer
 │   └── embedder.py          # SentenceTransformers model wrapper (384-dim)
 ├── routing/                 # Dynamic classification & guard verification engine
@@ -58,6 +62,12 @@ sentinelcache/
 │   ├── guards.py            # Hybrid Guard Layer (NegationGuard & EntityGuard)
 │   ├── provider_registry.py # Provider health checking & credential validator
 │   └── router.py            # Tiered model selection & cost calculator
+├── frontend/                # Phase 5 Custom React Observability Dashboard
+│   ├── src/
+│   │   ├── App.tsx          # Dashboard UI, Live Telemetry, Benchmark Grid & Inspector Console
+│   │   └── index.css        # Technical dark design system (Tailwind v4)
+│   ├── package.json         # React 19, Vite, Recharts, Lucide-React
+│   └── vite.config.ts       # Vite frontend configuration
 ├── eval/                    # Phase 4 & 4.5 Empirical Evaluation Benchmark Suite
 │   ├── benchmark_dataset.json# 45 labeled prompt pairs (A1, A2, B categories)
 │   ├── benchmark_dataset.py # Benchmark dataset generation script
@@ -66,7 +76,6 @@ sentinelcache/
 │   ├── compare_embedding_models.py # MiniLM vs mpnet diagnostic comparison
 │   ├── results.json         # Raw benchmark output telemetry
 │   └── results_summary.md   # Generated Markdown benchmark summary table
-├── dashboard/               # Prometheus metrics & Grafana dashboard specs
 ├── docs/                    # Architectural diagrams & benchmark documentation
 │   └── benchmarks.md        # Full Phase 4.5 Hybrid Guard Layer benchmark report
 ├── docker-compose.yml       # Qdrant vector database container setup
@@ -99,6 +108,11 @@ Static similarity thresholds fail on operational queries where minor wording cha
 Dense embedding similarity alone has a mathematical limitation: single-word negation flips (*"Revoke API keys"* vs *"Do NOT revoke API keys"*) and entity swaps (*"Transfer $500 to account 987654321"* vs *"123456789"*) produce high cosine similarity scores (0.92 - 0.97+). The **Hybrid Guard Layer** intercepts nearest-neighbor matches and enforces two deterministic verification guards before confirming any cache hit:
 1. **NegationGuard (`detect_negation_mismatch`)**: Detects asymmetric negation markers near shared action verbs.
 2. **EntityGuard (`detect_entity_mismatch`)**: Compares extracted numbers, amounts, dates, quarters, environments, and proper noun tokens.
+
+### Phase 5: Custom Observability Dashboard & Request Inspector Console
+- **Metrics Telemetry API**: FastAPI endpoints (`/api/metrics/summary`, `/api/metrics/timeseries`, `/api/metrics/recent`, `/api/metrics/eval-results`) providing live gateway stats.
+- **System Performance Chart**: Real-time request volume, latency trajectory, and hit rate visualization rendered using linear data points.
+- **Interactive Gateway Test Console**: Technical request/response conversation thread with an inline metadata strip (`source`, `sim`, `risk`, `threshold`, `tier`, `latency`, `cost`) and a sticky **Request Inspector Panel** showing full raw JSON telemetry.
 
 ---
 
@@ -147,6 +161,7 @@ Our diagnostic investigation ([`eval/compare_embedding_models.py`](eval/compare_
 
 ### 1. Prerequisites
 - Python 3.10+
+- Node.js 18+ (for Frontend Dashboard)
 - Docker Desktop (for Qdrant Vector Database)
 - Groq API Key ([Get one here](https://console.groq.com/keys))
 
@@ -183,11 +198,19 @@ QDRANT_PORT=6333
 docker compose up -d
 ```
 
-### 5. Launch SentinelCache Gateway
+### 5. Launch SentinelCache Gateway Backend
 ```bash
 uvicorn gateway.main:app --reload --host 127.0.0.1 --port 8000
 ```
 *The gateway defaults to production `cache_mode=hybrid` with NegationGuard and EntityGuard active.*
+
+### 6. Launch Phase 5 Frontend Observability Dashboard
+```bash
+cd frontend
+npm install
+npm run dev
+```
+*Open your browser at **http://localhost:5173/** to access the live dashboard and Gateway Test Console.*
 
 ---
 
