@@ -17,20 +17,34 @@
 
 By unifying **intent risk classification**, **adaptive vector distance thresholding**, **deterministic hybrid safety guards**, and **tiered multi-provider model routing**, SentinelCache safely accelerates recurring prompt workloads while guaranteeing **0% safety violations (0.0% False Positive Rate)** on sensitive operational actions.
 
-```
-+-----------------------------------------------------------------------------------+
-|                                  SentinelCache                                    |
-|                                                                                   |
-|   [Prompt] ---> (Risk Classifier) ---> (Adaptive Vector Lookup in Qdrant)         |
-|                       |                              |                            |
-|                       v                              v                            |
-|               [Tiered Router] <--- (Hybrid Safety Guards: Negation & Entity)     |
-|                       |                              |                            |
-|                       +--------------+---------------+                            |
-|                                      |                                            |
-|                                      v                                            |
-|                    { Cached Hit (12ms) | LLM Provider }                       |
-+-----------------------------------------------------------------------------------+
+```mermaid
+graph TD
+    A[Client Request] -->|POST /v1/chat/completions| B[SentinelCache Gateway]
+    B --> C[Intent Risk Classifier]
+    C -->|Risk Score 0.0 - 1.0| D[Adaptive Threshold Calculator]
+    
+    B --> E[SentenceTransformer Embedder]
+    E -->|384-dim Vector| F[Qdrant Nearest-Neighbor Search]
+    D -->|effective_threshold| F
+    
+    F -->|Similarity < Threshold| G[Cache MISS: Dynamic Provider Router]
+    F -->|Similarity >= Threshold| H{Hybrid Safety Guard Verification}
+    
+    H -->|Negation Check| I[NegationGuard]
+    H -->|Entity Check| J[EntityGuard]
+    
+    I -->|Asymmetric Negation| K[Intercept: Force Cache MISS]
+    J -->|Entity Identifier Mismatch| K
+    K --> G
+    
+    I -->|Pass| L{Guards Verified?}
+    J -->|Pass| L
+    L -->|Yes| M[Cache HIT: Return Cached Response]
+    
+    G --> N[LLM Provider Dispatch & Fallback]
+    N -->|Store Entry| O[Upsert to Qdrant]
+    O --> P[Unified Telemetry Response Payload]
+    M --> P
 ```
 
 ---
