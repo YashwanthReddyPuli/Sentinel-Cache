@@ -127,10 +127,17 @@ def detect_entity_mismatch(prompt_a: str, prompt_b: str) -> bool:
         return True
 
     # 5. Single letter / proper noun entity mismatch (e.g., User A vs User B)
-    # Filter out common sentence-starting words if they are just capitalized
-    common_start_words = {"What", "How", "Why", "When", "Where", "Can", "Could", "Please", "Show", "Export", "Grant", "Revoke", "Delete", "Cancel", "Approve", "Reject", "Close", "Transfer", "Increase", "Decrease", "Shut", "Keep", "Enable", "Disable"}
-    pn_a = {w for w in ent_a["proper_nouns"] if w not in common_start_words}
-    pn_b = {w for w in ent_b["proper_nouns"] if w not in common_start_words}
+    # Filter out common sentence-starting words and lead-in query words if capitalized
+    stop_words = {
+        "what", "how", "why", "when", "where", "can", "could", "please", "show", 
+        "export", "grant", "revoke", "delete", "cancel", "approve", "reject", 
+        "close", "transfer", "increase", "decrease", "shut", "keep", "enable", 
+        "disable", "in", "is", "are", "do", "does", "did", "who", "which", 
+        "tell", "give", "explain", "i", "me", "my", "you", "your", "we", "our",
+        "a", "an", "the", "on", "at", "for", "to", "of", "with", "by", "system"
+    }
+    pn_a = {w for w in ent_a["proper_nouns"] if w.lower() not in stop_words}
+    pn_b = {w for w in ent_b["proper_nouns"] if w.lower() not in stop_words}
     
     if pn_a and pn_b and pn_a != pn_b:
         return True

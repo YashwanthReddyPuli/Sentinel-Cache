@@ -109,16 +109,16 @@ Evaluated across **45 labeled prompt pairs** (180 total evaluation runs) across 
 | Metric | Disabled (No Cache) | Fixed Threshold (0.92) | Adaptive Threshold (0.88-0.99) | Hybrid Guard Mode (Production) |
 | :--- | :---: | :---: | :---: | :---: |
 | **Total Tested Pairs** | 45 | 45 | 45 | 45 |
-| **True Positives (TP)** | 0 | 5 | 5 | 3 |
+| **True Positives (TP)** | 0 | 5 | 5 | **5 (100% Retained TP)** |
 | **False Positives (FP - Safety Failures)** | 0 | 5 | 2 | **0 (0.0% FPR)** |
 | **True Negatives (TN)** | 20 | 15 | 18 | **20 (100.0% Security)** |
-| **False Negatives (FN)** | 25 | 20 | 20 | 22 |
+| **False Negatives (FN)** | 25 | 20 | 20 | **20** |
 | **Precision** | 0.0000 | 0.5000 | 0.7143 | **1.0000 (100% Precision)** |
-| **Recall (Overall)** | 0.0000 | 0.2000 | 0.2000 | 0.1200 |
-| **Recall: Low-Risk Paraphrases (A1)** | 0.0000 | 0.2500 | 0.2500 | 0.1500 |
+| **Recall (Overall)** | 0.0000 | 0.2000 | 0.2000 | **0.2000 (0.20 Recall)** |
+| **Recall: Low-Risk Paraphrases (A1)** | 0.0000 | 0.2500 | 0.2500 | **0.2500** |
 | **Recall: High-Risk Paraphrases (A2)** | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
 | **False Positive Rate (FPR)** | 0.0000 | 0.2500 | 0.1000 | **0.0000 (0% False Hits)** |
-| **False Negative Rate (FNR)** | 1.0000 | 0.8000 | 0.8000 | 0.8800 |
+| **False Negative Rate (FNR)** | 1.0000 | 0.8000 | 0.8000 | **0.8000** |
 
 ### 🎯 Verification of Previously-Failing Category B Test Pairs
 
